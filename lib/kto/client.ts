@@ -1,7 +1,7 @@
 /* ────────────────────────────────────────────────────────────────
-   한국관광공사 TourAPI(data.go.kr) · AreaTarDemDsService 공통 클라이언트
-   지역별 관광 다양성 서비스 — areaTarSjrnDsList / areaTarExpDsList가 공유하는
-   요청 조립·응답 파싱 로직.
+   한국관광공사 TourAPI(data.go.kr) · B551011 계열 공통 클라이언트
+   AreaTarDemDsService(관광 체류·소비 강도), AreaTarDivService(관광 다양성)
+   등 지역 코드 기반 목록 오퍼레이션이 공유하는 요청 조립·응답 파싱 로직.
 
    ⚠ 서버에서만 호출할 것 — data.go.kr은 CORS 헤더를 주지 않아
      브라우저에서 직접 fetch가 막힌다. "use client" 컴포넌트에서
@@ -12,17 +12,20 @@
 
    # 서비스 명세
 
-   | 번호 | 서비스명(국문) | 오퍼레이션 | 오퍼레이션명 |
+   | 번호 | 서비스 | 오퍼레이션 | 오퍼레이션명 |
    | --- | --- | --- | --- |
-   | 1 | 지역별 관광 다양성 | areaTarSjrnDsList | 지역별 관광 체류 강도 정보 목록 조회 |
-   | 2 | 지역별 관광 다양성 | areaTarExpDsList | 지역별 관광 소비 강도 정보 목록 조회 |
+   | 1 | AreaTarDemDsService | areaTarSjrnDsList | 지역별 관광 체류 강도 정보 목록 조회 |
+   | 2 | AreaTarDemDsService | areaTarExpDsList | 지역별 관광 소비 강도 정보 목록 조회 |
+   | 3 | AreaTarDivService | areaTouDivList | 지역별 관광객 다양성 정보 목록 조회 |
+   | 4 | AreaTarDivService | areaExpDivList | 지역별 관광 소비 다양성 정보 목록 조회 |
+   | 5 | AreaTarDivService | areaIntlDivList | 지역별 국제적 다양성 정보 목록 조회 |
 
-   오퍼레이션별 요청/응답 파라미터는 각 lib/kto/areaTar*.ts 상단 주석 참고.
+   오퍼레이션별 요청/응답 파라미터는 각 lib/kto/area*.ts 상단 주석 참고.
    ──────────────────────────────────────────────────────────────── */
 
 import { findAreaCd, findSigunguCd } from "./sigunguCodes";
 
-const BASE = "https://apis.data.go.kr/B551011/AreaTarDemDsService";
+const BASE = "https://apis.data.go.kr/B551011";
 
 export type AreaCodeParams =
   | { areaCd: string; areaNm?: never; signguCd?: string; sigunguNm?: never }
@@ -58,9 +61,10 @@ export function resolveAreaCodes(params: AreaCodeParams): { areaCd: string; sign
   return { areaCd, signguCd };
 }
 
-/** AreaTarDemDsService의 목록 오퍼레이션(areaTarSjrnDsList/areaTarExpDsList) 공통 호출부. */
-export async function fetchAreaTarDemDsList<T>(
-  operation: "areaTarSjrnDsList" | "areaTarExpDsList",
+/** B551011 산하 서비스의 목록 오퍼레이션 공통 호출부. */
+export async function fetchKtoList<T>(
+  service: string,
+  operation: string,
   query: Record<string, string>
 ): Promise<T[]> {
   const serviceKey = process.env.KTO_SERVICE_KEY;
@@ -76,7 +80,7 @@ export async function fetchAreaTarDemDsList<T>(
     ...query,
   });
 
-  const res = await fetch(`${BASE}/${operation}?${params.toString()}`);
+  const res = await fetch(`${BASE}/${service}/${operation}?${params.toString()}`);
   if (!res.ok) {
     throw new Error(`KTO API 요청 실패: ${res.status} ${res.statusText}`);
   }
