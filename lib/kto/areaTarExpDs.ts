@@ -43,7 +43,7 @@
    | tarExpDsIxVal | 관광 소비 강도 세부 지표값 | 0 | 82.05 | 관광 소비 강도 세부 지표값 |
    ──────────────────────────────────────────────────────────────── */
 
-import { fetchAreaTarDemDsList, resolveAreaCodes, type AreaCodeParams } from "./client";
+import { fetchKtoList, resolveAreaCodes, type AreaCodeParams } from "./client";
 
 export type AreaTarExpDsParams = AreaCodeParams & {
   baseYm: string; // 조회 기준월 YYYYMM
@@ -77,5 +77,5 @@ export async function fetchAreaTarExpDs(
   if (signguCd) query.signguCd = signguCd;
   if (params.tarExpDsIxCd) query.tarExpDsIxCd = params.tarExpDsIxCd;
 
-  return fetchAreaTarDemDsList<AreaTarExpDsItem>("areaTarExpDsList", query);
+  return fetchKtoList<AreaTarExpDsItem>("AreaTarDemDsService", "areaTarExpDsList", query);
 }

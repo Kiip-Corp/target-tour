@@ -43,7 +43,7 @@
    | tarSjrnDsIxVal | 관광 체류 강도 세부 지표값 | 0 | 79.08 | 관광 체류 강도 세부 지표값 |
    ──────────────────────────────────────────────────────────────── */
 
-import { fetchAreaTarDemDsList, resolveAreaCodes, type AreaCodeParams } from "./client";
+import { fetchKtoList, resolveAreaCodes, type AreaCodeParams } from "./client";
 
 export type AreaTarSjrnDsParams = AreaCodeParams & {
   baseYm: string; // 조회 기준월 YYYYMM
@@ -77,5 +77,5 @@ export async function fetchAreaTarSjrnDs(
   if (signguCd) query.signguCd = signguCd;
   if (params.tarSjrnDsIxCd) query.tarSjrnDsIxCd = params.tarSjrnDsIxCd;
 
-  return fetchAreaTarDemDsList<AreaTarSjrnDsItem>("areaTarSjrnDsList", query);
+  return fetchKtoList<AreaTarSjrnDsItem>("AreaTarDemDsService", "areaTarSjrnDsList", query);
 }
