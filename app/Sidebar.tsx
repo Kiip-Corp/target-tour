@@ -68,7 +68,7 @@ export default function Sidebar() {
           position: "fixed",
           top: 16,
           right: 16,
-          zIndex: 40,
+          zIndex: 100,
           width: 36,
           height: 36,
           display: "flex",
@@ -94,7 +94,7 @@ export default function Sidebar() {
             position: "fixed",
             inset: 0,
             background: "rgba(0,0,0,0.25)",
-            zIndex: 30,
+            zIndex: 90,
           }}
         />
       )}
@@ -106,12 +106,15 @@ export default function Sidebar() {
           right: 0,
           height: "100vh",
           width: 240,
+          boxSizing: "border-box",
           background: "#FBFBF8",
           borderLeft: "1px solid #E7E6E0",
-          zIndex: 35,
+          zIndex: 95,
           transform: open ? "translateX(0)" : "translateX(100%)",
           transition: "transform 0.2s ease",
           padding: "70px 12px 12px",
+          overflowY: "auto",
+          WebkitOverflowScrolling: "touch",
           fontFamily: "ui-monospace, monospace",
           fontSize: 13,
         }}
