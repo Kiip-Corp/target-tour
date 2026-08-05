@@ -20,6 +20,11 @@ const NAV_SECTIONS = [
         label: "medicalTourismInterest",
         desc: "의료관광 관심도 추이",
       },
+      {
+        href: "/foreignPatientsByCountry",
+        label: "foreignPatientsByCountry",
+        desc: "국가별 외국인 환자 현황",
+      },
     ],
   },
   {
