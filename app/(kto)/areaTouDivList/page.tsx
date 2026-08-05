@@ -62,9 +62,14 @@ export default async function AreaTouDivListPage() {
 
   return (
     <div style={{ padding: 24, fontFamily: "ui-monospace, monospace", fontSize: 13 }}>
-      <h1 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>
+      <h1 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>
         areaTouDivList 테스트 · {CASES.length}건 호출
       </h1>
+      <p style={{ fontSize: 12, color: "#6B7280", marginBottom: 16, lineHeight: 1.6 }}>
+        touDivIxCd — 관광객 다양성 지표 코드: 31: 전체, 3101: 10대 방문객수, 3102: 20대 방문객수,
+        3103: 30대 방문객수, 3104: 40대 방문객수, 3105: 50대 방문객수, 3106: 60대 방문객수, 3107:
+        70대 방문객수
+      </p>
       <div
         style={{
           display: "grid",

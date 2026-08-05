@@ -62,9 +62,13 @@ export default async function TestPage() {
 
   return (
     <div style={{ padding: 24, fontFamily: "ui-monospace, monospace", fontSize: 13 }}>
-      <h1 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>
+      <h1 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>
         areaTarSjrnDsList 테스트 · {CASES.length}건 호출
       </h1>
+      <p style={{ fontSize: 12, color: "#6B7280", marginBottom: 16, lineHeight: 1.6 }}>
+        tarSjrnDsIxCd — 관광 체류 강도 지표 코드: 21: 전체, 2101: 타권역 방문자 비중, 2102: 숙박
+        비중, 2103: 1박 방문자수, 2104: 2박 방문자수, 2105: 3박 방문자수
+      </p>
       <div
         style={{
           display: "grid",

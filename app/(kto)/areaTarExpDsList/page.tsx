@@ -62,9 +62,13 @@ export default async function TestExpPage() {
 
   return (
     <div style={{ padding: 24, fontFamily: "ui-monospace, monospace", fontSize: 13 }}>
-      <h1 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>
+      <h1 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>
         areaTarExpDsList 테스트 · {CASES.length}건 호출
       </h1>
+      <p style={{ fontSize: 12, color: "#6B7280", marginBottom: 16, lineHeight: 1.6 }}>
+        tarExpDsIxCd — 관광 소비 강도 지표 코드: 22: 전체, 2201: 외지인 소비액, 2202: 외지인 소비
+        비중, 2203: 방문량 대비 소비액
+      </p>
       <div
         style={{
           display: "grid",

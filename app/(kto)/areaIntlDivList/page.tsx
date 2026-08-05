@@ -62,9 +62,13 @@ export default async function AreaIntlDivListPage() {
 
   return (
     <div style={{ padding: 24, fontFamily: "ui-monospace, monospace", fontSize: 13 }}>
-      <h1 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>
+      <h1 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>
         areaIntlDivList 테스트 · {CASES.length}건 호출
       </h1>
+      <p style={{ fontSize: 12, color: "#6B7280", marginBottom: 16, lineHeight: 1.6 }}>
+        intlDivIxCd — 국제적 다양성 지표 코드: 33: 전체, 3301: 외국인 소비액, 3302: 외국인
+        방문자수, 3303: 외국인 방문객 국적 다양성
+      </p>
       <div
         style={{
           display: "grid",

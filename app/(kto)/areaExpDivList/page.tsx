@@ -62,9 +62,14 @@ export default async function AreaExpDivListPage() {
 
   return (
     <div style={{ padding: 24, fontFamily: "ui-monospace, monospace", fontSize: 13 }}>
-      <h1 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>
+      <h1 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>
         areaExpDivList 테스트 · {CASES.length}건 호출
       </h1>
+      <p style={{ fontSize: 12, color: "#6B7280", marginBottom: 16, lineHeight: 1.6 }}>
+        expDivIxCd — 관광 소비 다양성 지표 코드: 32: 전체, 3201: 10대 소비액, 3202: 20대 소비액,
+        3203: 30대 소비액, 3204: 40대 소비액, 3205: 50대 소비액, 3206: 60대 소비액, 3207: 70대
+        소비액
+      </p>
       <div
         style={{
           display: "grid",
