@@ -26,11 +26,15 @@ export default function MultiLineChart({
   years,
   defaultVisible,
   groupLabel = "국가",
+  valueLabel = "외국인 환자 수 (명)",
+  formatPeriod = (n: number) => `${n}년`,
 }: {
   series: NamedSeries[];
   years: number[];
   defaultVisible: string[];
   groupLabel?: string;
+  valueLabel?: string;
+  formatPeriod?: (n: number) => string;
 }) {
   const [visible, setVisible] = useState<Set<string>>(new Set(defaultVisible));
   const [hoverYear, setHoverYear] = useState<number | null>(null);
@@ -144,7 +148,7 @@ export default function MultiLineChart({
                 fontSize={10.5}
                 fill={MUTED}
               >
-                {yr}
+                {formatPeriod(yr)}
               </text>
             ))}
 
@@ -203,7 +207,7 @@ export default function MultiLineChart({
               fontSize={11}
               fill={MUTED}
             >
-              외국인 환자 수 (명)
+              {valueLabel}
             </text>
             <text x={innerW / 2} y={innerH + 40} textAnchor="middle" fontSize={11} fill={MUTED}>
               기준연도
@@ -228,7 +232,9 @@ export default function MultiLineChart({
               minWidth: 140,
             }}
           >
-            <div style={{ fontWeight: 700, marginBottom: 4, color: INK }}>{hoverYear}년</div>
+            <div style={{ fontWeight: 700, marginBottom: 4, color: INK }}>
+              {hoverYear !== null ? formatPeriod(hoverYear) : ""}
+            </div>
             {hovered.map((r) => (
               <div
                 key={r.label}
@@ -280,7 +286,7 @@ export default function MultiLineChart({
                     key={yr}
                     style={{ textAlign: "right", padding: "4px 10px", color: MUTED, borderBottom: `1px solid ${GRID}` }}
                   >
-                    {yr}
+                    {formatPeriod(yr)}
                   </th>
                 ))}
               </tr>

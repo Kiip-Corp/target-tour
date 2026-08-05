@@ -36,6 +36,11 @@ const NAV_SECTIONS = [
         desc: "의료 소비 건수·금액 추이",
       },
       {
+        href: "/medicalConsumptionByCountry",
+        label: "medicalConsumptionByCountry",
+        desc: "국가별 의료 소비액 추이",
+      },
+      {
         href: "/medicalSpecialtyMix",
         label: "medicalSpecialtyMix",
         desc: "진료과목별 소비 비율",
@@ -44,6 +49,21 @@ const NAV_SECTIONS = [
         href: "/medicalSpecialtyOverall",
         label: "medicalSpecialtyOverall",
         desc: "진료과목별 소비 비율(종합)",
+      },
+      {
+        href: "/medicalConsumptionMap",
+        label: "medicalConsumptionMap",
+        desc: "지역별 소비 지도 (5-1)",
+      },
+      {
+        href: "/medicalSpecialtyByRegion",
+        label: "medicalSpecialtyByRegion",
+        desc: "지역별 진료과목 비율 (5-2)",
+      },
+      {
+        href: "/medicalPopularNeighborhoods",
+        label: "medicalPopularNeighborhoods",
+        desc: "지역별 인기 동네 (5-3)",
       },
     ],
   },
