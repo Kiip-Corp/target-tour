@@ -13,6 +13,16 @@ const NAV_SECTIONS = [
     ],
   },
   {
+    title: "PoC2",
+    items: [
+      {
+        href: "/medicalTourismInterest",
+        label: "medicalTourismInterest",
+        desc: "의료관광 관심도 추이",
+      },
+    ],
+  },
+  {
     title: "KTO API 테스트",
     items: [
       { href: "/areaTarSjrnDsList", label: "areaTarSjrnDsList", desc: "관광 체류 강도" },
