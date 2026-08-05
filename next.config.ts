@@ -7,6 +7,7 @@ const nextConfig: NextConfig = {
   },
   basePath: '/target-tour',
   assetPrefix: '/target-tour',
+  trailingSlash: true, // GitHub Pages는 <route>/index.html만 서빙 가능 — 직접 접속·새로고침 시 404 방지
 };
 
 export default nextConfig;
