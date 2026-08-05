@@ -28,6 +28,7 @@ const MUTED = "#6B7280";
 const GRID = "#E7E6E0";
 
 function periodLabel(p: string, period: Period) {
+  if (!/^\d+$/.test(p)) return p; // 합계 스냅샷 등 숫자가 아닌 라벨은 그대로 표시
   if (period === "annual") return p;
   return `${p.slice(2, 4)}.${p.slice(4, 6)}`;
 }
@@ -135,11 +136,13 @@ export default function StackedShareChart({
   amountMonthly,
   countAnnual,
   countMonthly,
+  periodToggleLabels = ["연간 (2018–2026)", "월간 (2025)"],
 }: {
   amountAnnual: ShareRow[];
   amountMonthly: ShareRow[];
   countAnnual: ShareRow[];
   countMonthly: ShareRow[];
+  periodToggleLabels?: [string, string];
 }) {
   const [period, setPeriod] = useState<Period>("annual");
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
@@ -163,7 +166,7 @@ export default function StackedShareChart({
         </div>
 
         <div style={{ display: "flex", border: `1px solid ${GRID}`, borderRadius: 8, overflow: "hidden" }}>
-          {(["annual", "monthly"] as Period[]).map((p) => (
+          {(["annual", "monthly"] as Period[]).map((p, i) => (
             <button
               key={p}
               onClick={() => {
@@ -181,7 +184,7 @@ export default function StackedShareChart({
                 fontWeight: 600,
               }}
             >
-              {p === "annual" ? "연간 (2018–2026)" : "월간 (2025)"}
+              {periodToggleLabels[i]}
             </button>
           ))}
         </div>

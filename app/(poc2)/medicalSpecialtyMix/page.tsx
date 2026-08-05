@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import StackedShareChart, { type ShareRow } from "./StackedShareChart";
+import StackedShareChart, { type ShareRow } from "../StackedShareChart";
 
 async function loadShares(...segments: string[]): Promise<ShareRow[]> {
   const file = path.join(process.cwd(), "data", ...segments);

@@ -40,6 +40,11 @@ const NAV_SECTIONS = [
         label: "medicalSpecialtyMix",
         desc: "진료과목별 소비 비율",
       },
+      {
+        href: "/medicalSpecialtyOverall",
+        label: "medicalSpecialtyOverall",
+        desc: "진료과목별 소비 비율(종합)",
+      },
     ],
   },
   {
