@@ -3,8 +3,8 @@
 import * as d3 from "d3";
 import { useMemo, useState } from "react";
 
-export type CountrySeries = {
-  country: string;
+export type NamedSeries = {
+  label: string;
   color: string;
   points: { year: number; value: number }[];
 };
@@ -25,10 +25,12 @@ export default function MultiLineChart({
   series,
   years,
   defaultVisible,
+  groupLabel = "국가",
 }: {
-  series: CountrySeries[];
+  series: NamedSeries[];
   years: number[];
   defaultVisible: string[];
+  groupLabel?: string;
 }) {
   const [visible, setVisible] = useState<Set<string>>(new Set(defaultVisible));
   const [hoverYear, setHoverYear] = useState<number | null>(null);
@@ -56,13 +58,13 @@ export default function MultiLineChart({
     .curve(d3.curveMonotoneX);
 
   const yTicks = y.ticks(5);
-  const visibleSeries = series.filter((s) => visible.has(s.country));
+  const visibleSeries = series.filter((s) => visible.has(s.label));
 
-  const toggle = (country: string) =>
+  const toggle = (label: string) =>
     setVisible((prev) => {
       const next = new Set(prev);
-      if (next.has(country)) next.delete(country);
-      else next.add(country);
+      if (next.has(label)) next.delete(label);
+      else next.add(label);
       return next;
     });
 
@@ -71,7 +73,7 @@ export default function MultiLineChart({
       ? null
       : visibleSeries
           .map((s) => ({
-            country: s.country,
+            label: s.label,
             color: s.color,
             value: s.points.find((p) => p.year === hoverYear)?.value,
           }))
@@ -82,11 +84,11 @@ export default function MultiLineChart({
     <div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 16 }}>
         {series.map((s) => {
-          const on = visible.has(s.country);
+          const on = visible.has(s.label);
           return (
             <button
-              key={s.country}
-              onClick={() => toggle(s.country)}
+              key={s.label}
+              onClick={() => toggle(s.label)}
               aria-pressed={on}
               style={{
                 display: "inline-flex",
@@ -111,7 +113,7 @@ export default function MultiLineChart({
                   display: "block",
                 }}
               />
-              <span style={{ color: on ? INK : MUTED }}>{s.country}</span>
+              <span style={{ color: on ? INK : MUTED }}>{s.label}</span>
             </button>
           );
         })}
@@ -171,7 +173,7 @@ export default function MultiLineChart({
 
             {visibleSeries.map((s) => (
               <path
-                key={s.country}
+                key={s.label}
                 d={line(s.points) ?? ""}
                 fill="none"
                 stroke={s.color}
@@ -184,7 +186,7 @@ export default function MultiLineChart({
             {visibleSeries.map((s) =>
               s.points.map((p) => (
                 <circle
-                  key={`${s.country}-${p.year}`}
+                  key={`${s.label}-${p.year}`}
                   cx={x(p.year) ?? 0}
                   cy={y(p.value)}
                   r={4}
@@ -229,11 +231,11 @@ export default function MultiLineChart({
             <div style={{ fontWeight: 700, marginBottom: 4, color: INK }}>{hoverYear}년</div>
             {hovered.map((r) => (
               <div
-                key={r.country}
+                key={r.label}
                 style={{ display: "flex", alignItems: "center", gap: 6, padding: "2px 0" }}
               >
                 <span style={{ width: 10, height: 2, background: r.color, display: "block" }} />
-                <span style={{ color: MUTED, flex: 1 }}>{r.country}</span>
+                <span style={{ color: MUTED, flex: 1 }}>{r.label}</span>
                 <span style={{ fontWeight: 700, color: INK }}>{fmtFull(r.value ?? 0)}</span>
               </div>
             ))}
@@ -271,7 +273,7 @@ export default function MultiLineChart({
             <thead>
               <tr>
                 <th style={{ textAlign: "left", padding: "4px 10px", color: MUTED, borderBottom: `1px solid ${GRID}` }}>
-                  국가
+                  {groupLabel}
                 </th>
                 {years.map((yr) => (
                   <th
@@ -285,10 +287,10 @@ export default function MultiLineChart({
             </thead>
             <tbody>
               {visibleSeries.map((s) => (
-                <tr key={s.country}>
+                <tr key={s.label}>
                   <td style={{ padding: "4px 10px", display: "flex", alignItems: "center", gap: 6 }}>
                     <span style={{ width: 8, height: 8, borderRadius: 8, background: s.color, display: "block" }} />
-                    {s.country}
+                    {s.label}
                   </td>
                   {years.map((yr) => (
                     <td key={yr} style={{ textAlign: "right", padding: "4px 10px", color: INK }}>

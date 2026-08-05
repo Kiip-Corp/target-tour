@@ -25,6 +25,11 @@ const NAV_SECTIONS = [
         label: "foreignPatientsByCountry",
         desc: "국가별 외국인 환자 현황",
       },
+      {
+        href: "/foreignPatientsByRegion",
+        label: "foreignPatientsByRegion",
+        desc: "지역별 외국인 환자 현황",
+      },
     ],
   },
   {

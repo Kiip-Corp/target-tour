@@ -1,19 +1,19 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import MultiLineChart, { type CountrySeries } from "./MultiLineChart";
+import MultiLineChart, { type NamedSeries } from "../MultiLineChart";
 
 // dataviz 스킬 검증 팔레트(라이트) — 고정 순서, 국가별 색상 불변
-const COUNTRY_ORDER: { country: string; color: string }[] = [
-  { country: "일본", color: "#2a78d6" },
-  { country: "중국", color: "#eb6834" },
-  { country: "미국", color: "#1baf7a" },
-  { country: "대만", color: "#eda100" },
-  { country: "태국", color: "#e87ba4" },
-  { country: "러시아", color: "#008300" },
-  { country: "몽골", color: "#4a3aa7" },
-  { country: "베트남", color: "#e34948" },
-  { country: "싱가포르", color: "#0d9488" },
-  { country: "캐나다", color: "#a3a300" },
+const COUNTRY_ORDER: { label: string; color: string }[] = [
+  { label: "일본", color: "#2a78d6" },
+  { label: "중국", color: "#eb6834" },
+  { label: "미국", color: "#1baf7a" },
+  { label: "대만", color: "#eda100" },
+  { label: "태국", color: "#e87ba4" },
+  { label: "러시아", color: "#008300" },
+  { label: "몽골", color: "#4a3aa7" },
+  { label: "베트남", color: "#e34948" },
+  { label: "싱가포르", color: "#0d9488" },
+  { label: "캐나다", color: "#a3a300" },
 ];
 
 const DEFAULT_VISIBLE = ["일본", "중국", "미국", "대만", "태국"];
@@ -34,12 +34,12 @@ async function loadData() {
 
   const years = [...new Set(rows.map((r) => r.year))].sort((a, b) => a - b);
 
-  const series: CountrySeries[] = COUNTRY_ORDER.map(({ country, color }) => ({
-    country,
+  const series: NamedSeries[] = COUNTRY_ORDER.map(({ label, color }) => ({
+    label,
     color,
     points: years.map((year) => ({
       year,
-      value: rows.find((r) => r.year === year && r.country === country)?.value ?? 0,
+      value: rows.find((r) => r.year === year && r.country === label)?.value ?? 0,
     })),
   }));
 
