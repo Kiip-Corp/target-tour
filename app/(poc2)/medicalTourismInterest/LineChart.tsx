@@ -6,8 +6,8 @@ import { useState } from "react";
 type Point = { ym: string; value: number };
 
 const WIDTH = 720;
-const HEIGHT = 320;
-const MARGIN = { top: 20, right: 20, bottom: 40, left: 40 };
+const HEIGHT = 326;
+const MARGIN = { top: 20, right: 28, bottom: 46, left: 52 };
 
 const TEAL = "#0E7C6B";
 const INK = "#171A21";
@@ -15,7 +15,9 @@ const MUTED = "#6B7280";
 const BORDER = "#E7E6E0";
 
 function formatYm(ym: string) {
-  return `${ym.slice(0, 4)}.${ym.slice(4, 6)}`;
+  const yy = ym.slice(2, 4);
+  const m = Number(ym.slice(4, 6));
+  return `${yy}년 ${m}월`;
 }
 
 export default function LineChart({ data }: { data: Point[] }) {
@@ -48,7 +50,12 @@ export default function LineChart({ data }: { data: Point[] }) {
   return (
     <svg
       viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-      style={{ width: "100%", height: "auto", fontFamily: "ui-monospace, monospace" }}
+      style={{
+        width: "100%",
+        height: "auto",
+        overflow: "visible",
+        fontFamily: "ui-monospace, monospace",
+      }}
     >
       <g transform={`translate(${MARGIN.left},${MARGIN.top})`}>
         {yTicks.map((t) => (
@@ -97,6 +104,19 @@ export default function LineChart({ data }: { data: Point[] }) {
             </text>
           </g>
         )}
+
+        <text
+          transform={`translate(-40,${innerH / 2}) rotate(-90)`}
+          textAnchor="middle"
+          fontSize={11}
+          fill={MUTED}
+        >
+          관심도 (%)
+        </text>
+
+        <text x={innerW / 2} y={innerH + 38} textAnchor="middle" fontSize={11} fill={MUTED}>
+          기간 (년, 월)
+        </text>
       </g>
     </svg>
   );

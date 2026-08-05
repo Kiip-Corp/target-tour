@@ -25,7 +25,7 @@ export default async function MedicalTourismInterestPage() {
         1-의료관광 관심도 추이.csv · 구글 트렌드 기반 한국 의료관광 관심도 지수(0–100) · d3로 그린
         꺾은선 그래프
       </p>
-      <div style={{ border: "1px solid #E7E6E0", borderRadius: 10, padding: 16 }}>
+      <div style={{ border: "1px solid #E7E6E0", borderRadius: 10, padding: 28 }}>
         <LineChart data={data} />
       </div>
     </div>
