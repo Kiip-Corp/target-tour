@@ -87,7 +87,7 @@ export default async function MedicalPopularNeighborhoodsPage() {
 
   return (
     <div style={{ padding: 24, fontFamily: "ui-monospace, monospace", fontSize: 13 }}>
-      <h1 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>지역별 인기 소비 동네 추이</h1>
+      <h1 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>지역별 의료소비 - 인기 소비동네</h1>
       <p style={{ fontSize: 12, color: "#6B7280", marginBottom: 16, lineHeight: 1.6 }}>
         data/5_연간2018-2026, data/5_월간2025 · 시도 버튼을 누르면 해당 지역 상위 동네(최대
         5곳)의 소비 비율 추이가 멀티라인으로 렌더링됩니다. 연간(2018–2026)/월간(2025) 토글로

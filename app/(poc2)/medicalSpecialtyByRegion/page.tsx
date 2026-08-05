@@ -62,7 +62,7 @@ export default async function MedicalSpecialtyByRegionPage() {
   return (
     <div style={{ padding: 24, fontFamily: "ui-monospace, monospace", fontSize: 13 }}>
       <h1 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>
-        지역별 진료과목 소비 비율
+        지역별 의료소비 - 진료과목별
       </h1>
       <p style={{ fontSize: 12, color: "#6B7280", marginBottom: 16, lineHeight: 1.6 }}>
         data/5_연간2018-2026/&lt;시도&gt;/…진료과목별 비율.csv · 시도 버튼을 누르면 해당 지역의
