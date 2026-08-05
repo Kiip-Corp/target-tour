@@ -5,9 +5,10 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:gh-pages": "GH_PAGES=true next build",
     "start": "next start",
     "lint": "eslint",
-    "deploy": "gh-pages -d out"
+    "deploy": "npm run build:gh-pages && gh-pages -d out --dotfiles"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",
