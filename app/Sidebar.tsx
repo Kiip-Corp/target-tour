@@ -22,6 +22,16 @@ const NAV_SECTIONS = [
       { href: "/areaIntlDivList", label: "areaIntlDivList", desc: "국제적 다양성" },
     ],
   },
+  {
+    title: "방한관광통계 테스트",
+    items: [
+      {
+        href: "/getEdrcntTourismStatsList",
+        label: "getEdrcntTourismStatsList",
+        desc: "출입국관광통계",
+      },
+    ],
+  },
 ];
 
 export default function Sidebar() {
