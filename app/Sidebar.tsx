@@ -30,6 +30,26 @@ const NAV_SECTIONS = [
         label: "getEdrcntTourismStatsList",
         desc: "출입국관광통계",
       },
+      {
+        href: "/getOvseaTuristStatsList",
+        label: "getOvseaTuristStatsList",
+        desc: "국민해외관광객통계",
+      },
+      {
+        href: "/getForeignTuristStatsList",
+        label: "getForeignTuristStatsList",
+        desc: "방한외래관광객통계",
+      },
+      {
+        href: "/getForeignTuristAvrgList",
+        label: "getForeignTuristAvrgList",
+        desc: "방한외래관광객평균체재일",
+      },
+      {
+        href: "/getTourismBalcList",
+        label: "getTourismBalcList",
+        desc: "관광수지",
+      },
     ],
   },
 ];

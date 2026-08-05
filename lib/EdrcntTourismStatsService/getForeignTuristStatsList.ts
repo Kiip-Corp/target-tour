@@ -4,6 +4,16 @@
 
    국가코드(NAT_CD) 전체 목록은 ./readme.md 참고.
 
+   callback URL: http://openapi.tour.go.kr/openapi/service/EdrcntTourismStatsService/getForeignTuristStatsList
+
+   ⚠ 레거시 TourAPI 도메인(openapi.tour.go.kr)이라 HTTPS를 지원하지 않는다 — http로만 호출된다.
+     서버에서만 호출할 것(브라우저 직접 fetch는 CORS로 막힌다).
+     이 서비스(EdrcntTourismStatsService)는 AreaTarDemDsService/AreaTarDivService와 별도
+     활용신청이 필요하다 — 승인 전에는 정상 응답 대신 resultCode 30
+     "SERVICE KEY IS NOT REGISTERED ERROR"가 돌아온다(실제 호출로 확인함).
+
+   환경변수: KTO_SERVICE_KEY (.env.local, 공공데이터포털 일반인증키·디코딩값)
+
    ### 1. 요청 메시지 (Request Parameter)
 
    | 항목명(영문) | 항목명(국문) | 항목크기 | 항목구분 | 샘플데이터 | 항목 설명 |
@@ -38,3 +48,88 @@
    | traPurpCd | 목적코드 | 2 | 1 |  | 목적코드 |
    | ym | 년월 | 6 | 1 | 201208 | 년월 |
    ──────────────────────────────────────────────────────────────── */
+
+const ENDPOINT =
+  "http://openapi.tour.go.kr/openapi/service/EdrcntTourismStatsService/getForeignTuristStatsList";
+
+export type ForeignTuristStatsParams = {
+  YM: string; // 년월 YYYYMM (필수)
+  NAT_CD?: string; // 국가코드
+  SEX_CD?: "C" | "F" | "M";
+  AGE_CD?: string; // 10,20,30,40,50,60,70,80,99
+  TRA_PURP_CD?: string; // 1,2,3,4,5,6,7,8,99
+  PORT_CD?: string; // 입국항코드
+  pageNo?: number;
+  numOfRows?: number;
+};
+
+export type ForeignTuristStatsItem = {
+  age: string;
+  ageCd: string;
+  natCd: string;
+  natKorNm: string;
+  num: string;
+  port: string;
+  portCd: string;
+  rnum: string;
+  sex: string;
+  sexCd: string;
+  traPurp: string;
+  traPurpCd: string;
+  ym: string;
+};
+
+type ApiResponse = {
+  response: {
+    header: { resultCode: string | number; resultMsg: string };
+    body?: {
+      items?: { item?: ForeignTuristStatsItem[] | ForeignTuristStatsItem } | "";
+      numOfRows: number;
+      pageNo: number;
+      totalCount: number;
+    };
+  };
+};
+
+export async function fetchForeignTuristStatsList(
+  params: ForeignTuristStatsParams
+): Promise<ForeignTuristStatsItem[]> {
+  const serviceKey = process.env.KTO_SERVICE_KEY;
+  if (!serviceKey) {
+    throw new Error("KTO_SERVICE_KEY 환경변수가 설정되지 않았습니다.");
+  }
+
+  const query = new URLSearchParams({
+    serviceKey,
+    MobileApp: "iipuda",
+    MobileOS: "ETC",
+    _type: "json",
+    pageNo: String(params.pageNo ?? 1),
+    numOfRows: String(params.numOfRows ?? 100),
+    YM: params.YM,
+  });
+  if (params.NAT_CD) query.set("NAT_CD", params.NAT_CD);
+  if (params.SEX_CD) query.set("SEX_CD", params.SEX_CD);
+  if (params.AGE_CD) query.set("AGE_CD", params.AGE_CD);
+  if (params.TRA_PURP_CD) query.set("TRA_PURP_CD", params.TRA_PURP_CD);
+  if (params.PORT_CD) query.set("PORT_CD", params.PORT_CD);
+
+  const res = await fetch(`${ENDPOINT}?${query.toString()}`);
+  if (!res.ok) {
+    throw new Error(`방한외래관광객통계 API 요청 실패: ${res.status} ${res.statusText}`);
+  }
+
+  const json = (await res.json()) as ApiResponse;
+  const header = json.response?.header;
+  if (!header) {
+    throw new Error("방한외래관광객통계 API 응답 형식이 올바르지 않습니다.");
+  }
+  if (String(header.resultCode) !== "0000") {
+    throw new Error(`방한외래관광객통계 API 오류(${header.resultCode}): ${header.resultMsg}`);
+  }
+
+  const body = json.response.body;
+  const item = body && body.items !== "" ? body.items?.item : undefined;
+  if (!item) return [];
+  return Array.isArray(item) ? item : [item];
+}
