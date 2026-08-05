@@ -30,6 +30,16 @@ const NAV_SECTIONS = [
         label: "foreignPatientsByRegion",
         desc: "지역별 외국인 환자 현황",
       },
+      {
+        href: "/medicalConsumptionTrend",
+        label: "medicalConsumptionTrend",
+        desc: "의료 소비 건수·금액 추이",
+      },
+      {
+        href: "/medicalSpecialtyMix",
+        label: "medicalSpecialtyMix",
+        desc: "진료과목별 소비 비율",
+      },
     ],
   },
   {
