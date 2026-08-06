@@ -1,5 +1,6 @@
 import PopularNeighborhoodClient from "./PopularNeighborhoodClient";
 import { ANNUAL_ROOT, MONTHLY_ROOT, loadPopularNeighborhoodRegions } from "../popularNeighborhoodsData";
+import InsightBox from "../InsightBox";
 
 export default async function MedicalPopularNeighborhoodsPage() {
   const [annual, monthly] = await Promise.all([
@@ -16,6 +17,12 @@ export default async function MedicalPopularNeighborhoodsPage() {
         기간 단위를 바꿀 수 있습니다. 전국 폴더의 동일 파일은 시군구/행정동이 아닌 시도 단위
         랭킹이라(컬럼 구조가 다름) 이 목록에서는 제외했습니다.
       </p>
+      <InsightBox
+        items={[
+          "(서울 기준) 2018~2023년 6년 연속 강남 역삼1동이 1위였는데, 2024년부터 중구 명동이 역전해 2026년엔 42.5%까지 격차를 벌리며 확실한 1위로 자리잡았습니다.",
+          "반대로 강남 논현1동은 2018년 18.6%(3위)에서 2026년 7.0%(꼴찌)로 계속 밀려났고, 마포 서교동은 최근 2년간 2위로 올라서는 등 순위 변동이 활발합니다.",
+        ]}
+      />
       <div style={{ border: "1px solid #E7E6E0", borderRadius: 10, padding: 28 }}>
         <PopularNeighborhoodClient annual={annual} monthly={monthly} />
       </div>

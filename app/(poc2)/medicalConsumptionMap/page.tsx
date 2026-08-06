@@ -2,6 +2,7 @@ import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import KoreaConsumptionMap, { type RegionData } from "./KoreaConsumptionMap";
 import { REGIONS } from "./koreaGeo";
+import InsightBox from "../InsightBox";
 
 const ROOT = path.join(process.cwd(), "data", "5_연간2018-2026");
 
@@ -72,6 +73,12 @@ export default async function MedicalConsumptionMapPage() {
         규모를 원 크기·색으로 한반도 지도 위에 표시합니다. /visitor 페이지와 같은 좌표 데이터를
         재사용했습니다.
       </p>
+      <InsightBox
+        items={[
+          "서울의 쏠림이 시간이 갈수록 심해집니다 — 전국 소비건수 중 서울 비중이 2018년 54.3%에서 2025년 67.5%로 커졌고, 경기(7.9%)·부산(6.3%)이 멀찍이 2·3위입니다.",
+          "일부 지역 쌍(대구–인천, 충남–전남, 제주–강원)의 수치가 연도별로 완전히 동일하게 나타납니다 — 실제 지역 차이라기보다 원본 데이터의 중복/placeholder로 보여, 이 지역들 간 세부 비교는 주의가 필요합니다.",
+        ]}
+      />
       <div style={{ border: "1px solid #E7E6E0", borderRadius: 10, padding: 20 }}>
         <KoreaConsumptionMap regions={regions} years={years} nationTotals={nationTotals} />
       </div>

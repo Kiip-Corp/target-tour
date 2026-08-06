@@ -1,6 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import MultiLineChart, { type NamedSeries } from "../MultiLineChart";
+import InsightBox from "../InsightBox";
 
 // dataviz 스킬 검증 팔레트(라이트) — foreignPatientsByCountry와 동일한 슬롯 1~5 재사용,
 // 홍콩은 이 차트에만 나오므로(다른 차트와 동시에 안 보임) 슬롯 6(green)을 새로 배정
@@ -56,6 +57,13 @@ export default async function MedicalConsumptionByCountryPage() {
         data/4_연간2018-2026/&lt;국가&gt;/…소비액 추이.csv · 국가 6개(일본·중국·미국·대만·태국·홍콩) 전부
         기본 표시, 위 버튼으로 켜고 끌 수 있습니다.
       </p>
+      <InsightBox
+        items={[
+          "국가별 순위가 완전히 재편됐습니다 — 2018년 1위는 중국(1.25억원)이었지만 2025년엔 미국(3.79억원)이 1위, 일본(3.15억원)이 2위로 올라섰고 중국은 4위(2.25억원)로 밀려났습니다.",
+          "대만이 168배(138만원→2.3억원)로 압도적으로 가장 가파르게 성장했고, 일본도 14.5배 성장한 반면 중국은 1.8배로 6개국 중 가장 더디게 늘었습니다.",
+          "2018년엔 대만이 6개국 중 소비액이 가장 적었지만(138만원) 2025년엔 3위(2.3억원)까지 올라 순위 하위권과 상위권이 뒤바뀐 대표 사례입니다.",
+        ]}
+      />
       <div style={{ border: "1px solid #E7E6E0", borderRadius: 10, padding: 28 }}>
         <MultiLineChart
           series={series}

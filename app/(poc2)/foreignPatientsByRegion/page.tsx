@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import MultiLineChart, { type NamedSeries } from "../MultiLineChart";
+import InsightBox from "../InsightBox";
 
 // dataviz 스킬 검증 팔레트(라이트) — 2-1(국가) 차트와 동일한 10슬롯 재사용, 고정 순서
 const REGION_ORDER: { region: string; color: string }[] = [
@@ -74,6 +75,13 @@ export default async function ForeignPatientsByRegionPage() {
         지역은 위 버튼으로 켜고 끌 수 있습니다. 규모가 작은 5개 지역({OTHER_REGIONS.join("·")})은
         &ldquo;기타&rdquo;로 합산해 보여줍니다.
       </p>
+      <InsightBox
+        items={[
+          "서울 쏠림이 갈수록 심해지고 있습니다 — 전국 대비 서울 비중이 2018년 64.8%에서 2024년 85.4%로 커졌고, 서울만 6년간 4.1배(245,463→999,642명) 성장했습니다.",
+          "2023→2024 1년 사이에도 서울(2.1배), 부산(2.3배), 제주(3.2배)가 모두 큰 폭으로 늘어 특정 해에 국한된 변화가 아니라 최근 지속되는 성장 흐름으로 보입니다.",
+          "경기·인천을 제외한 나머지 지역은 규모 자체가 작아(연 4천 명 미만) &ldquo;기타&rdquo;로 묶었는데, 이 지역들의 합계도 서울 성장 속도에는 못 미쳐 격차가 벌어지는 추세입니다.",
+        ]}
+      />
       <div style={{ border: "1px solid #E7E6E0", borderRadius: 10, padding: 28 }}>
         <MultiLineChart
           series={series}

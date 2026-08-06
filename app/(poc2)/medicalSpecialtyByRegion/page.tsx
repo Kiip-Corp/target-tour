@@ -1,6 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import RegionSpecialtyClient, { type RegionShare } from "./RegionSpecialtyClient";
+import InsightBox from "../InsightBox";
 
 const ANNUAL_ROOT = path.join(process.cwd(), "data", "5_연간2018-2026");
 const MONTHLY_ROOT = path.join(process.cwd(), "data", "5_월간2025");
@@ -77,6 +78,12 @@ export default async function MedicalSpecialtyByRegionPage() {
         구성비(소비건수·소비액)가 100% 누적 막대로 렌더링됩니다. 연간(2018–2026 전체기간
         누적)/월간(2025년 누적) 토글로 기간 범위를 바꿀 수 있습니다.
       </p>
+      <InsightBox
+        items={[
+          "지역과 무관하게 반복되는 패턴이 있습니다 — 소비건수는 어느 지역이든 약국이 55~74%로 압도적 1위, 소비액은 피부과가 43~51%로 1위입니다. 방문은 약국에서 많이 하지만 돈은 피부과에 더 많이 씁니다.",
+          "성형외과 비중은 지역차가 뚜렷합니다 — 서울은 소비액의 29.0%가 성형외과인데 부산은 8.3%에 그쳐 3.5배 차이가 납니다. 강남 등 서울 성형외과 클러스터의 존재가 데이터로도 드러납니다.",
+        ]}
+      />
       <div style={{ border: "1px solid #E7E6E0", borderRadius: 10, padding: 28 }}>
         <RegionSpecialtyClient annual={annual} monthly={monthly} />
       </div>

@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import MultiLineChart, { type NamedSeries } from "../MultiLineChart";
+import InsightBox from "../InsightBox";
 
 // dataviz 스킬 검증 팔레트(라이트) — 고정 순서, 국가별 색상 불변
 const COUNTRY_ORDER: { label: string; color: string }[] = [
@@ -56,6 +57,13 @@ export default async function ForeignPatientsByCountryPage() {
         2-1국가별 외국인 환자 현황_Grid.csv · 기본 5개국(일본·중국·미국·대만·태국) 표시, 나머지
         국가는 위 버튼으로 켜고 끌 수 있습니다.
       </p>
+      <InsightBox
+        items={[
+          "전체 방문 규모는 2018년 378,967명 → 2024년 1,170,467명으로 6년간 약 3.1배 성장했습니다. 2020~2021년 코로나 시기엔 2019년 대비 4.2배 급감했다가 이후 빠르게 회복했습니다.",
+          "국가 순위가 바뀌었습니다 — 2018년 1위는 중국(118,310명)이었지만, 일본이 6년간 10.4배(42,563→441,112명) 성장하며 2024년 압도적 1위(전체의 38%)로 올라섰습니다.",
+          "대만은 2018년 1,731명에서 2024년 83,456명으로 48배 성장 — 특히 2023→2024 한 해에만 6.5배 뛰어 가장 가파른 상승세를 보인 국가입니다.",
+        ]}
+      />
       <div style={{ border: "1px solid #E7E6E0", borderRadius: 10, padding: 28 }}>
         <MultiLineChart series={series} years={years} defaultVisible={DEFAULT_VISIBLE} />
       </div>
