@@ -2,14 +2,9 @@
 
 import { useState } from "react";
 import HorizontalShareBar, { RegionButtons } from "../RegionSpecialtyBar";
+import PeriodToggle, { type Period } from "../PeriodToggle";
 
 export type RegionShare = { region: string; count: Record<string, number>; amount: Record<string, number> };
-
-type Period = "annual" | "monthly";
-
-const INK = "#171A21";
-const MUTED = "#6B7280";
-const GRID = "#E7E6E0";
 
 export default function RegionSpecialtyClient({
   annual,
@@ -28,26 +23,11 @@ export default function RegionSpecialtyClient({
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 6 }}>
         <RegionButtons regions={data.map((d) => d.region)} selected={region} onSelect={setRegion} />
-        <div style={{ display: "flex", border: `1px solid ${GRID}`, borderRadius: 8, overflow: "hidden", height: 30 }}>
-          {(["annual", "monthly"] as Period[]).map((p) => (
-            <button
-              key={p}
-              onClick={() => setPeriod(p)}
-              style={{
-                padding: "0 14px",
-                border: "none",
-                background: period === p ? INK : "#fff",
-                color: period === p ? "#fff" : MUTED,
-                cursor: "pointer",
-                fontFamily: "ui-monospace, monospace",
-                fontSize: 12,
-                fontWeight: 600,
-              }}
-            >
-              {p === "annual" ? "연간 누적 (2018–2026)" : "월간 누적 (2025)"}
-            </button>
-          ))}
-        </div>
+        <PeriodToggle
+          period={period}
+          onChange={setPeriod}
+          labels={["연간 누적 (2018–2026)", "월간 누적 (2025)"]}
+        />
       </div>
       {current && (
         <div style={{ display: "flex", flexDirection: "column", gap: 24, marginTop: 12 }}>

@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import MultiLineChart from "../MultiLineChart";
+import NeighborhoodRankingTable from "../NeighborhoodRankingTable";
 import { RegionButtons } from "../RegionSpecialtyBar";
 import PeriodToggle, { formatAnnual, formatMonthly, type Period } from "../PeriodToggle";
 import type { RegionSeries } from "../popularNeighborhoodsData";
 
-export default function PopularNeighborhoodClient({
+export default function PopularNeighborhoodRankingClient({
   annual,
   monthly,
 }: {
@@ -22,37 +22,29 @@ export default function PopularNeighborhoodClient({
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 6 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 16 }}>
         <RegionButtons regions={data.map((d) => d.region)} selected={region} onSelect={setRegion} />
         <PeriodToggle period={period} onChange={setPeriod} />
       </div>
       {current && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 32, marginTop: 12 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
           <div>
             <div style={{ fontSize: 12.5, fontWeight: 600, marginBottom: 8 }}>
-              {current.region} · 소비건수 비율 상위 동네
+              {current.region} · 소비건수 비율 순위
             </div>
-            <MultiLineChart
-              key={`${region}-${period}-count`}
+            <NeighborhoodRankingTable
               series={current.count.series}
               years={current.count.years}
-              defaultVisible={current.count.series.map((s) => s.label)}
-              groupLabel="동네"
-              valueLabel="소비건수 비율 (%)"
               formatPeriod={formatPeriod}
             />
           </div>
           <div>
             <div style={{ fontSize: 12.5, fontWeight: 600, marginBottom: 8 }}>
-              {current.region} · 소비액 비율 상위 동네
+              {current.region} · 소비액 비율 순위
             </div>
-            <MultiLineChart
-              key={`${region}-${period}-amount`}
+            <NeighborhoodRankingTable
               series={current.amount.series}
               years={current.amount.years}
-              defaultVisible={current.amount.series.map((s) => s.label)}
-              groupLabel="동네"
-              valueLabel="소비액 비율 (%)"
               formatPeriod={formatPeriod}
             />
           </div>

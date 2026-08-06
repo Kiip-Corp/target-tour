@@ -65,6 +65,11 @@ const NAV_SECTIONS = [
         label: "medicalPopularNeighborhoods",
         desc: "지역별 인기 동네 (5-3)",
       },
+      {
+        href: "/medicalPopularNeighborhoodsRanking",
+        label: "medicalPopularNeighborhoodsRanking",
+        desc: "지역별 인기 동네 순위표",
+      },
     ],
   },
   {
