@@ -1,0 +1,1 @@
+(globalThis.TURBOPACK||(globalThis.TURBOPACK=[])).push(["object"==typeof document?document.currentScript:void 0,53779,o=>{"use strict";o.s(["default",0,function(o,t){let e;if(void 0===t)for(let t of o)null!=t&&(e<t||void 0===e&&t>=t)&&(e=t);else{let l=-1;for(let i of o)null!=(i=t(i,++l,o))&&(e<i||void 0===e&&i>=i)&&(e=i)}return e}])}]);
