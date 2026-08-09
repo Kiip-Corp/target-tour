@@ -11,6 +11,9 @@ importers:
       '@anthropic-ai/sdk':
         specifier: ^0.115.0
         version: 0.115.0(zod@4.4.3)
+      '@svg-maps/south-korea':
+        specifier: ^2.0.0
+        version: 2.0.0
       d3:
         specifier: ^7.9.0
         version: 7.9.0
@@ -504,6 +507,9 @@ packages:
 
   '@standard-schema/utils@0.3.0':
     resolution: {integrity: sha512-e7Mew686owMaPJVNNLs55PUvgz371nKgwsc4vxE49zsODpJEnxgxRo2y/OKrqueavXgZNMDVj3DdHFlaSAeU8g==}
+
+  '@svg-maps/south-korea@2.0.0':
+    resolution: {integrity: sha512-Zs+hcVWn1V2s9ZUdgETOU81EmCyp6Nb9VULsbchvzdXjvvfta/C9cMlIQ58cd75gEWaKUutiyygUpQRESnt/RQ==}
 
   '@swc/helpers@0.5.15':
     resolution: {integrity: sha512-JQ5TuMi45Owi4/BIMAJBoSQoOJu12oOk/gADqlcUL9JEdHB8vyjUSsxqeNXnmXHjYKMi2WcYtezGEEhqUI/E2g==}
@@ -2885,6 +2891,8 @@ snapshots:
   '@standard-schema/spec@1.1.0': {}
 
   '@standard-schema/utils@0.3.0': {}
+
+  '@svg-maps/south-korea@2.0.0': {}
 
   '@swc/helpers@0.5.15':
     dependencies:

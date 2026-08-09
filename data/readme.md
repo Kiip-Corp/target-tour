@@ -57,3 +57,23 @@
 | 외국인 의료 소비건수 추이 | ▷ 전국/해당지역의 외국인 의료 소비건수 추이<br>- (활용데이터) 신용카드 데이터 신한카드 |
 | 외국인 의료 소비건수 진료과목별 월별 비율 | ▷ 전국/해당지역의 외국인 진료과목별 의료 소비건수 월별 비율 추이<br>- (활용데이터) 신용카드 데이터 신한카드 |
 | 외국인 의료 소비건수 진료과목별 비율 | ▷ 전국/해당지역의 외국인 진료과목별 의료 소비건수 분포<br>- (활용데이터) 신용카드 데이터 신한카드 |
+
+### 6. 지역별 관광지출액
+빅데이터>신용카드
+https://datalab.visitkorea.or.kr/datalab/portal/bda/getByLocgoCnsmAmt.do 
+
+### 7. 방문자기준 지역방문현황
+지역별 분석>지역별 현황
+https://datalab.visitkorea.or.kr/datalab/portal/loc/getAreaVisitDataForm.do#
+
+
+### 8. 외래객 지역별 방한현황
+https://datalab.visitkorea.or.kr/datalab/portal/loc/getAreaFocTourBeta.do# 
+
+### 9. 지역별 방문자수
+빅데이터>이동통신
+https://datalab.visitkorea.or.kr/datalab/portal/bda/getMetcoAna.do#
+
+### 10.국가별 방한현황(빅데이터)
+국가별 분석>방한여행 현황
+https://datalab.visitkorea.or.kr/datalab/portal/nat/getNatFocTourAna.do# 
