@@ -100,6 +100,11 @@ const NAV_SECTIONS = [
         label: "foreignVisitorRegionMapBubble",
         desc: "국가별 방한객 지역 분포 지도 (7, @tenqube/react-korea-bubble-map을 React 19용으로 직접 포팅)",
       },
+      {
+        href: "/tourismConsumptionMapDrilldown",
+        label: "tourismConsumptionMapDrilldown",
+        desc: "관광소비 지역별 지출액 전국→서울→강남구 드릴다운 (6)",
+      },
     ],
   },
   {

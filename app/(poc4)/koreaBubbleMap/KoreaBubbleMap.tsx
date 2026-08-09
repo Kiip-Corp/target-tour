@@ -20,8 +20,11 @@
 // 구현했다 — effect가 관리할 부수효과가 없으므로 StrictMode 이중 마운트에서도 중복 렌더링
 // 문제가 구조적으로 발생하지 않는다.
 // 원본은 전국 모든 시군구·읍면동을 담고 있지만, 이 프로젝트가 실제로 쓰는 건 "서울을 확대하면
-// 서울 구단위로 들어가는" 2단계 드릴다운뿐이라 서울 25개 구만 추려서 포팅했다
+// 서울 구단위로 들어가는" 드릴다운뿐이라 서울 25개 구만 추려서 포팅했다
 // (app/(poc2)/tourismConsumptionMap/TourismDrilldownMap.tsx의 휠 줌 드릴다운과 같은 패턴).
+// 강남구 22개 행정동은 실제 경계 폴리곤이 없어(법정동 14개와 행정동 22개가 안 맞음, ./gangnamDong.ts
+// 참고) 강남구 폴리곤을 배경으로 깔고 그 위에 근사 좌표 버블만 표시하는 3번째 레벨로 처리한다.
+// enableGangnamDrilldown prop으로 켠 페이지에서만 서울→강남구 추가 드릴다운이 생긴다.
 
 import * as d3 from "d3";
 import { feature } from "topojson-client";
@@ -30,6 +33,7 @@ import type { GeometryCollection, Topology } from "topojson-specification";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import sidoTopologyRaw from "./sidoTopology.json";
 import seoulGuTopologyRaw from "./seoulGuTopology.json";
+import { GANGNAM_CODE, GANGNAM_DONG } from "./gangnamDong";
 
 export interface MapData {
   code: string;
@@ -43,7 +47,7 @@ export interface KoreaMapData {
   sido: MapData[];
   /** 서울을 확대했을 때 보여줄 서울 25개 구 데이터. 생략하면 기본 회색으로 이름만 표시. */
   sigungu?: MapData[];
-  /** 이 포팅본에서는 읍면동 지리 데이터를 포팅하지 않아 렌더링에 쓰이지 않는다. */
+  /** enableGangnamDrilldown일 때 강남구 22개 행정동 데이터. code는 동 이름과 일치해야 한다. */
   emd?: MapData[];
 }
 
@@ -61,10 +65,14 @@ export interface BubbleMapConfigProps {
   countPostfix?: string;
   percentLabel?: string;
   customTooltip?(params: TooltipProps): React.ReactNode;
-  /** 원본에는 없는 확장: 버블(원)을 그릴지 여부. 기본 true. */
+  /** 원본에는 없는 확장: 버블(원)을 그릴지 여부. 기본 true. 강남구 레벨은 항상 버블만 가능. */
   showBubbles?: boolean;
   /** 원본에는 없는 확장: 지역 클릭 콜백. */
   onSelect?(code: string): void;
+  /** 원본에는 없는 확장: 서울→강남구 3단계 드릴다운을 켤지 여부. 기본 false. */
+  enableGangnamDrilldown?: boolean;
+  /** 원본에는 없는 확장: 현재 표시 중인 레벨(0=전국,1=서울,2=강남구)이 바뀔 때마다 호출된다. */
+  onLevelChange?(level: 0 | 1 | 2): void;
 }
 
 const DEFAULT_REGION_FILL = "#dbdce0";
@@ -96,8 +104,12 @@ const SEOUL_GU_FEATURES = (
     RegionProps
   >
 ).features;
+const GANGNAM_GU_FEATURE = SEOUL_GU_FEATURES.find((f) => f.properties.CODE === GANGNAM_CODE) as Feature<
+  Polygon | MultiPolygon,
+  RegionProps
+>;
 
-type Level = 0 | 1;
+type Level = 0 | 1 | 2;
 
 function bubbleRadius(count: number, max: number) {
   if (max <= 0 || count <= 0) return 0;
@@ -137,11 +149,16 @@ export function KoreaBubbleMap({
   customTooltip,
   showBubbles = true,
   onSelect,
+  enableGangnamDrilldown = false,
+  onLevelChange,
 }: BubbleMapConfigProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [hoveredCode, setHoveredCode] = useState<string | null>(null);
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number; containerWidth: number } | null>(null);
   const [level, setLevel] = useState<Level>(0);
+  useEffect(() => {
+    onLevelChange?.(level);
+  }, [level, onLevelChange]);
 
   const sidoProjection = useMemo(() => d3.geoMercator().fitSize([width, height], { type: "FeatureCollection", features: SIDO_FEATURES }), [width, height]);
   const sidoPath = useMemo(() => d3.geoPath(sidoProjection), [sidoProjection]);
@@ -150,7 +167,13 @@ export function KoreaBubbleMap({
     [width, height]
   );
   const seoulGuPath = useMemo(() => d3.geoPath(seoulGuProjection), [seoulGuProjection]);
-  const projectionByLevel = { 0: sidoProjection, 1: seoulGuProjection } as const;
+  const gangnamDongProjection = useMemo(
+    () => d3.geoMercator().fitSize([width, height], GANGNAM_GU_FEATURE),
+    [width, height]
+  );
+  const gangnamDongPath = useMemo(() => d3.geoPath(gangnamDongProjection), [gangnamDongProjection]);
+  const gangnamBackgroundD = useMemo(() => gangnamDongPath(GANGNAM_GU_FEATURE) ?? "", [gangnamDongPath]);
+  const projectionByLevel = { 0: sidoProjection, 1: seoulGuProjection, 2: gangnamDongProjection } as const;
 
   const FULL_VIEW = useMemo(() => ({ x: 0, y: 0, w: width, h: height }), [width, height]);
   const [view, setView] = useState(FULL_VIEW);
@@ -169,8 +192,8 @@ export function KoreaBubbleMap({
     [FULL_VIEW]
   );
 
-  // 레벨 전환(전국↔서울) 직전에 "어느 지점을, 얼마나 확대해서 보고 있었는지"를 잠깐 담아두는 곳.
-  // 두 레벨은 서로 다른 투영을 쓰기 때문에(서울은 전국보다 스케일이 약 15배 큼 — 서울만 같은
+  // 레벨 전환 직전에 "어느 지점을, 얼마나 확대해서 보고 있었는지"를 잠깐 담아두는 곳.
+  // 레벨마다 서로 다른 투영을 쓰기 때문에(서울은 전국보다 스케일이 약 15배 큼 — 서울만 같은
   // 캔버스에 꽉 채우니 당연함), 단순히 같은 픽셀 너비로 진입하면 실제로는 훨씬 좁은 지역을
   // 보여주게 되어 "갑자기 확 확대되는" 느낌을 준다. 대신 이전 레벨에서 보이던 실제 지리적
   // 범위를 스케일 비율로 환산해 다음 레벨에서도 같은 범위가 보이도록 한다.
@@ -246,10 +269,28 @@ export function KoreaBubbleMap({
     () => buildRegions(SEOUL_GU_FEATURES, data.sigungu ?? [], seoulGuPath),
     [data.sigungu, seoulGuPath]
   );
-  const regions = level === 0 ? sidoRegions : seoulGuRegions;
-  const activeRows = level === 0 ? data.sido : data.sigungu ?? [];
+  const gangnamDongRegions = useMemo(() => {
+    const byName = new Map((data.emd ?? []).map((r) => [r.code, r]));
+    return GANGNAM_DONG.map((d) => {
+      const row = byName.get(d.name);
+      const [cx, cy] = gangnamDongProjection([d.lng, d.lat]) ?? [0, 0];
+      return {
+        code: d.name,
+        name: row?.name ?? d.name,
+        count: row?.count ?? 0,
+        fill: row?.fill ?? DEFAULT_REGION_FILL,
+        d: "",
+        cx,
+        cy,
+      };
+    });
+  }, [data.emd, gangnamDongProjection]);
+
+  const regions = level === 0 ? sidoRegions : level === 1 ? seoulGuRegions : gangnamDongRegions;
+  const activeRows = level === 0 ? data.sido : level === 1 ? data.sigungu ?? [] : data.emd ?? [];
   const maxValue = Math.max(...activeRows.map((d) => d.count), 1);
   const totalCount = activeRows.reduce((sum, d) => sum + d.count, 0);
+  const effectiveShowBubbles = showBubbles || level === 2;
 
   useEffect(() => {
     const el = containerRef.current;
@@ -274,10 +315,24 @@ export function KoreaBubbleMap({
           return;
         }
       }
+      if (level === 1 && zoomingIn && enableGangnamDrilldown && newW < width / 2.4) {
+        const lonlat = seoulGuProjection.invert?.([sx, sy]);
+        if (lonlat && d3.geoContains(GANGNAM_GU_FEATURE, lonlat)) {
+          setPendingFocus({ lonlat, viewW: newW, fromLevel: 1 });
+          setLevel(2);
+          return;
+        }
+      }
       if (level === 1 && !zoomingIn && newW > width * 1.05) {
         const lonlat = seoulGuProjection.invert?.([sx, sy]);
         setPendingFocus(lonlat ? { lonlat, viewW: newW, fromLevel: 1 } : null);
         setLevel(0);
+        return;
+      }
+      if (level === 2 && !zoomingIn && newW > width * 1.05) {
+        const lonlat = gangnamDongProjection.invert?.([sx, sy]);
+        setPendingFocus(lonlat ? { lonlat, viewW: newW, fromLevel: 2 } : null);
+        setLevel(1);
         return;
       }
 
@@ -287,7 +342,7 @@ export function KoreaBubbleMap({
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
-  }, [level, width, height, sidoProjection, seoulGuProjection, clampView]);
+  }, [level, width, height, sidoProjection, seoulGuProjection, gangnamDongProjection, enableGangnamDrilldown, clampView]);
 
   const hovered = hoveredCode ? regions.find((r) => r.code === hoveredCode) : null;
 
@@ -300,23 +355,37 @@ export function KoreaBubbleMap({
     const r = containerRef.current?.getBoundingClientRect();
     if (r) setTooltipPos({ x: e.clientX - r.left, y: e.clientY - r.top, containerWidth: r.width });
   };
+  // 클릭한 지점을 다음 레벨의 초기 중심으로 그대로 이어가, 휠로 들어갈 때와 같은 방식으로 정렬한다.
+  const enterChildLevel = (next: Level, e: React.MouseEvent, fromProjection: d3.GeoProjection) => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (rect) {
+      const v = viewRef.current;
+      const sx = v.x + ((e.clientX - rect.left) / rect.width) * v.w;
+      const sy = v.y + ((e.clientY - rect.top) / rect.height) * v.h;
+      const lonlat = fromProjection.invert?.([sx, sy]);
+      setPendingFocus(lonlat ? { lonlat, viewW: v.w, fromLevel: level } : null);
+    }
+    setLevel(next);
+  };
+
   const handleClick = (code: string, e: React.MouseEvent) => {
     if (justDraggedRef.current) return; // 드래그 끝의 합성 클릭은 무시
     if (level === 0 && code === SEOUL_CODE) {
-      // 클릭한 지점을 서울 레벨의 초기 중심으로 그대로 이어가, 휠로 들어갈 때와 같은 방식으로 정렬한다.
-      const rect = containerRef.current?.getBoundingClientRect();
-      if (rect) {
-        const v = viewRef.current;
-        const sx = v.x + ((e.clientX - rect.left) / rect.width) * v.w;
-        const sy = v.y + ((e.clientY - rect.top) / rect.height) * v.h;
-        const lonlat = sidoProjection.invert?.([sx, sy]);
-        setPendingFocus(lonlat ? { lonlat, viewW: v.w, fromLevel: 0 } : null);
-      }
-      setLevel(1);
+      enterChildLevel(1, e, sidoProjection);
+      return;
+    }
+    if (level === 1 && code === GANGNAM_CODE && enableGangnamDrilldown) {
+      enterChildLevel(2, e, seoulGuProjection);
       return;
     }
     onSelect?.(code);
   };
+
+  const BREADCRUMBS = [
+    { label: "전국", level: 0 as Level },
+    { label: "서울특별시", level: 1 as Level },
+    { label: "강남구", level: 2 as Level },
+  ].slice(0, level + 1);
 
   return (
     <div
@@ -334,7 +403,7 @@ export function KoreaBubbleMap({
           borderRadius: 20,
         }}
       >
-        {level === 1 && (
+        {level > 0 && (
           <div
             style={{
               position: "absolute",
@@ -351,23 +420,30 @@ export function KoreaBubbleMap({
               padding: "4px 8px",
             }}
           >
-            <button
-              onClick={() => setLevel(0)}
-              style={{
-                border: "none",
-                background: "none",
-                color: MUTED,
-                cursor: "pointer",
-                padding: 0,
-                fontFamily: "ui-monospace, monospace",
-                fontSize: 12,
-                textDecoration: "underline",
-              }}
-            >
-              전국
-            </button>
-            <span style={{ color: "#C7C6BF" }}>›</span>
-            <span style={{ color: INK, fontWeight: 600 }}>서울특별시</span>
+            {BREADCRUMBS.map((crumb, i) => (
+              <span key={crumb.level} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                {i > 0 && <span style={{ color: "#C7C6BF" }}>›</span>}
+                {crumb.level === level ? (
+                  <span style={{ color: INK, fontWeight: 600 }}>{crumb.label}</span>
+                ) : (
+                  <button
+                    onClick={() => setLevel(crumb.level)}
+                    style={{
+                      border: "none",
+                      background: "none",
+                      color: MUTED,
+                      cursor: "pointer",
+                      padding: 0,
+                      fontFamily: "ui-monospace, monospace",
+                      fontSize: 12,
+                      textDecoration: "underline",
+                    }}
+                  >
+                    {crumb.label}
+                  </button>
+                )}
+              </span>
+            ))}
           </div>
         )}
         <svg
@@ -384,6 +460,9 @@ export function KoreaBubbleMap({
             cursor: zoom > 1 ? (isPanning ? "grabbing" : "grab") : "default",
           }}
         >
+          {level === 2 && (
+            <path d={gangnamBackgroundD} fill={DEFAULT_REGION_FILL} stroke={REGION_STROKE} strokeWidth={0.5 / Math.max(zoom, 1)} />
+          )}
           <g>
             {regions.map((r) => (
               <path
@@ -395,11 +474,18 @@ export function KoreaBubbleMap({
                 onMouseEnter={(e) => handleEnter(r.code, e)}
                 onMouseMove={handleMove}
                 onClick={(e) => handleClick(r.code, e)}
-                style={{ cursor: onSelect || (level === 0 && r.code === SEOUL_CODE) ? "pointer" : "default" }}
+                style={{
+                  cursor:
+                    onSelect ||
+                    (level === 0 && r.code === SEOUL_CODE) ||
+                    (level === 1 && r.code === GANGNAM_CODE && enableGangnamDrilldown)
+                      ? "pointer"
+                      : "default",
+                }}
               />
             ))}
           </g>
-          {showBubbles && (
+          {effectiveShowBubbles && (
             <g>
               {regions.map((r) => {
                 const radius = bubbleRadius(r.count, maxValue) / Math.max(zoom, 1);
@@ -483,9 +569,12 @@ export function KoreaBubbleMap({
             pointerEvents: "none",
           }}
         >
-          {level === 0
-            ? "휠로 확대·축소, 드래그로 이동 · 서울 위에서 확대하면 구단위로 들어갑니다"
-            : "휠로 확대·축소, 드래그로 이동 · 축소하면 전국으로 돌아갑니다"}
+          {level === 0 && "휠로 확대·축소, 드래그로 이동 · 서울 위에서 확대하면 구단위로 들어갑니다"}
+          {level === 1 &&
+            (enableGangnamDrilldown
+              ? "휠로 확대·축소, 드래그로 이동 · 강남구 위에서 확대하면 동단위로 들어갑니다"
+              : "휠로 확대·축소, 드래그로 이동 · 축소하면 전국으로 돌아갑니다")}
+          {level === 2 && "휠로 확대·축소, 드래그로 이동 · 축소하면 서울로 돌아갑니다"}
         </div>
       </div>
     </div>

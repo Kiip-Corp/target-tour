@@ -1,7 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import CountryRegionMap, { type CountryData } from "./CountryRegionMap";
-import { SIDO_CODES } from "./sidoCodes";
+import { SIDO_CODES } from "../koreaBubbleMap/sidoCodes";
 import InsightBox from "../InsightBox";
 
 const DATA_ROOT = path.join(process.cwd(), "data");

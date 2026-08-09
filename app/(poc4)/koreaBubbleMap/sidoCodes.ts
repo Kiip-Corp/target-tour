@@ -1,5 +1,5 @@
 // @tenqube/react-korea-bubble-map이 내장한 topojson(dist/esm/sido-*.js)의
-// properties.CODE 값과 정확히 일치해야 버블이 지도에 매칭된다(임의 법정동코드 아님 — 번들 직접 확인).
+// properties.CODE 값과 정확히 일치해야 지도에 매칭된다(임의 법정동코드 아님 — 번들 직접 확인).
 // 특히 강원(5100000000)·전북(5200000000)은 특별자치도 전환 후 코드가 바뀐 값이라
 // 통상 알려진 법정동코드(42/45)와 다르다.
 export const SIDO_CODES = [
