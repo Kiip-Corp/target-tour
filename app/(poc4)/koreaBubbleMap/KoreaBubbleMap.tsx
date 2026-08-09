@@ -140,24 +140,22 @@ export function KoreaBubbleMap({
 }: BubbleMapConfigProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [hoveredCode, setHoveredCode] = useState<string | null>(null);
-  const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null);
+  const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number; containerWidth: number } | null>(null);
   const [level, setLevel] = useState<Level>(0);
+
+  const sidoProjection = useMemo(() => d3.geoMercator().fitSize([width, height], { type: "FeatureCollection", features: SIDO_FEATURES }), [width, height]);
+  const sidoPath = useMemo(() => d3.geoPath(sidoProjection), [sidoProjection]);
+  const seoulGuProjection = useMemo(
+    () => d3.geoMercator().fitSize([width, height], { type: "FeatureCollection", features: SEOUL_GU_FEATURES }),
+    [width, height]
+  );
+  const seoulGuPath = useMemo(() => d3.geoPath(seoulGuProjection), [seoulGuProjection]);
+  const projectionByLevel = { 0: sidoProjection, 1: seoulGuProjection } as const;
 
   const FULL_VIEW = useMemo(() => ({ x: 0, y: 0, w: width, h: height }), [width, height]);
   const [view, setView] = useState(FULL_VIEW);
-  const [prevResetKey, setPrevResetKey] = useState(`${width}x${height}x${level}`);
-  const resetKey = `${width}x${height}x${level}`;
-  if (prevResetKey !== resetKey) {
-    setPrevResetKey(resetKey);
-    setView(FULL_VIEW);
-  }
-  const zoom = FULL_VIEW.w / view.w;
-  const viewRef = useRef(view);
-  useEffect(() => {
-    viewRef.current = view;
-  }, [view]);
 
-  // 뷰(x,y,w,h)가 전체 지도 범위를 벗어나 빈 공간을 보여주지 않도록 드래그·휠 줌 모두에 적용하는 클램프.
+  // 뷰(x,y,w,h)가 전체 지도 범위를 벗어나 빈 공간을 보여주지 않도록 드래그·휠 줌·레벨 전환 모두에 적용하는 클램프.
   const clampView = useCallback(
     (v: typeof FULL_VIEW) => {
       const maxX = Math.max(FULL_VIEW.x, FULL_VIEW.x + FULL_VIEW.w - v.w);
@@ -171,6 +169,36 @@ export function KoreaBubbleMap({
     [FULL_VIEW]
   );
 
+  // 레벨 전환(전국↔서울) 직전에 "어느 지점을, 얼마나 확대해서 보고 있었는지"를 잠깐 담아두는 곳.
+  // 두 레벨은 서로 다른 투영을 쓰기 때문에(서울은 전국보다 스케일이 약 15배 큼 — 서울만 같은
+  // 캔버스에 꽉 채우니 당연함), 단순히 같은 픽셀 너비로 진입하면 실제로는 훨씬 좁은 지역을
+  // 보여주게 되어 "갑자기 확 확대되는" 느낌을 준다. 대신 이전 레벨에서 보이던 실제 지리적
+  // 범위를 스케일 비율로 환산해 다음 레벨에서도 같은 범위가 보이도록 한다.
+  const [pendingFocus, setPendingFocus] = useState<{ lonlat: [number, number]; viewW: number; fromLevel: Level } | null>(
+    null
+  );
+  const [prevResetKey, setPrevResetKey] = useState(`${width}x${height}x${level}`);
+  const resetKey = `${width}x${height}x${level}`;
+  if (prevResetKey !== resetKey) {
+    setPrevResetKey(resetKey);
+    if (pendingFocus) setPendingFocus(null);
+    const newProjection = projectionByLevel[level];
+    const focusPoint = pendingFocus && newProjection(pendingFocus.lonlat);
+    if (focusPoint && pendingFocus) {
+      const scaleRatio = newProjection.scale() / projectionByLevel[pendingFocus.fromLevel].scale();
+      const w = Math.min(FULL_VIEW.w, Math.max(pendingFocus.viewW * scaleRatio, FULL_VIEW.w / 8));
+      const h = w * (FULL_VIEW.h / FULL_VIEW.w);
+      setView(clampView({ x: focusPoint[0] - w / 2, y: focusPoint[1] - h / 2, w, h }));
+    } else {
+      setView(FULL_VIEW);
+    }
+  }
+  const zoom = FULL_VIEW.w / view.w;
+  const viewRef = useRef(view);
+  useEffect(() => {
+    viewRef.current = view;
+  }, [view]);
+
   const [isPanning, setIsPanning] = useState(false);
   const dragRef = useRef<{
     pointerId: number;
@@ -181,7 +209,8 @@ export function KoreaBubbleMap({
   const justDraggedRef = useRef(false);
 
   const handlePointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
-    if (zoom <= 1) return; // 전체 화면일 땐 드래그할 여지가 없다
+    // 전체 화면(zoom===1)일 땐 clampView가 이동을 (0,0)으로 그대로 되돌리므로 시각적으로는
+    // no-op이지만, 제스처 자체를 조건부로 막지 않아야 zoom 계산 타이밍에 기대는 버그가 없다.
     e.currentTarget.setPointerCapture(e.pointerId);
     justDraggedRef.current = false;
     dragRef.current = { pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, startView: viewRef.current };
@@ -212,14 +241,6 @@ export function KoreaBubbleMap({
     setIsPanning(false);
   };
 
-  const sidoProjection = useMemo(() => d3.geoMercator().fitSize([width, height], { type: "FeatureCollection", features: SIDO_FEATURES }), [width, height]);
-  const sidoPath = useMemo(() => d3.geoPath(sidoProjection), [sidoProjection]);
-  const seoulGuProjection = useMemo(
-    () => d3.geoMercator().fitSize([width, height], { type: "FeatureCollection", features: SEOUL_GU_FEATURES }),
-    [width, height]
-  );
-  const seoulGuPath = useMemo(() => d3.geoPath(seoulGuProjection), [seoulGuProjection]);
-
   const sidoRegions = useMemo(() => buildRegions(SIDO_FEATURES, data.sido, sidoPath), [data.sido, sidoPath]);
   const seoulGuRegions = useMemo(
     () => buildRegions(SEOUL_GU_FEATURES, data.sigungu ?? [], seoulGuPath),
@@ -248,11 +269,14 @@ export function KoreaBubbleMap({
       if (level === 0 && zoomingIn && newW < width / 2.4) {
         const lonlat = sidoProjection.invert?.([sx, sy]);
         if (lonlat && d3.geoContains(SEOUL_SIDO_FEATURE, lonlat)) {
+          setPendingFocus({ lonlat, viewW: newW, fromLevel: 0 });
           setLevel(1);
           return;
         }
       }
       if (level === 1 && !zoomingIn && newW > width * 1.05) {
+        const lonlat = seoulGuProjection.invert?.([sx, sy]);
+        setPendingFocus(lonlat ? { lonlat, viewW: newW, fromLevel: 1 } : null);
         setLevel(0);
         return;
       }
@@ -263,22 +287,31 @@ export function KoreaBubbleMap({
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
-  }, [level, width, height, sidoProjection, clampView]);
+  }, [level, width, height, sidoProjection, seoulGuProjection, clampView]);
 
   const hovered = hoveredCode ? regions.find((r) => r.code === hoveredCode) : null;
 
   const handleEnter = (code: string, e: React.MouseEvent) => {
     setHoveredCode(code);
     const r = containerRef.current?.getBoundingClientRect();
-    if (r) setTooltipPos({ x: e.clientX - r.left, y: e.clientY - r.top });
+    if (r) setTooltipPos({ x: e.clientX - r.left, y: e.clientY - r.top, containerWidth: r.width });
   };
   const handleMove = (e: React.MouseEvent) => {
     const r = containerRef.current?.getBoundingClientRect();
-    if (r) setTooltipPos({ x: e.clientX - r.left, y: e.clientY - r.top });
+    if (r) setTooltipPos({ x: e.clientX - r.left, y: e.clientY - r.top, containerWidth: r.width });
   };
-  const handleClick = (code: string) => {
+  const handleClick = (code: string, e: React.MouseEvent) => {
     if (justDraggedRef.current) return; // 드래그 끝의 합성 클릭은 무시
     if (level === 0 && code === SEOUL_CODE) {
+      // 클릭한 지점을 서울 레벨의 초기 중심으로 그대로 이어가, 휠로 들어갈 때와 같은 방식으로 정렬한다.
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (rect) {
+        const v = viewRef.current;
+        const sx = v.x + ((e.clientX - rect.left) / rect.width) * v.w;
+        const sy = v.y + ((e.clientY - rect.top) / rect.height) * v.h;
+        const lonlat = sidoProjection.invert?.([sx, sy]);
+        setPendingFocus(lonlat ? { lonlat, viewW: v.w, fromLevel: 0 } : null);
+      }
       setLevel(1);
       return;
     }
@@ -288,40 +321,68 @@ export function KoreaBubbleMap({
   return (
     <div
       className="react-korea-bubble-map"
-      style={{ width, fontFamily: "ui-monospace, monospace" }}
+      style={{ width: "100%", fontFamily: "ui-monospace, monospace" }}
       onMouseLeave={() => setHoveredCode(null)}
     >
-      {level === 1 && (
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6, fontSize: 12 }}>
-          <button
-            onClick={() => setLevel(0)}
+      <div
+        ref={containerRef}
+        style={{
+          position: "relative",
+          width: "100%",
+          aspectRatio: `${width} / ${height}`,
+          overflow: "hidden",
+          borderRadius: 20,
+        }}
+      >
+        {level === 1 && (
+          <div
             style={{
-              border: "none",
-              background: "none",
-              color: MUTED,
-              cursor: "pointer",
-              padding: 0,
-              fontFamily: "ui-monospace, monospace",
+              position: "absolute",
+              top: 10,
+              left: 10,
+              zIndex: 2,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
               fontSize: 12,
-              textDecoration: "underline",
+              background: "rgba(255,255,255,.85)",
+              border: `1px solid ${BORDER}`,
+              borderRadius: 6,
+              padding: "4px 8px",
             }}
           >
-            전국
-          </button>
-          <span style={{ color: "#C7C6BF" }}>›</span>
-          <span style={{ color: INK, fontWeight: 600 }}>서울특별시</span>
-        </div>
-      )}
-      <div ref={containerRef} style={{ position: "relative", width, height, overflow: "hidden", borderRadius: 20 }}>
+            <button
+              onClick={() => setLevel(0)}
+              style={{
+                border: "none",
+                background: "none",
+                color: MUTED,
+                cursor: "pointer",
+                padding: 0,
+                fontFamily: "ui-monospace, monospace",
+                fontSize: 12,
+                textDecoration: "underline",
+              }}
+            >
+              전국
+            </button>
+            <span style={{ color: "#C7C6BF" }}>›</span>
+            <span style={{ color: INK, fontWeight: 600 }}>서울특별시</span>
+          </div>
+        )}
         <svg
           viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`}
-          width={width}
-          height={height}
+          width="100%"
+          height="100%"
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={endPointerDrag}
           onPointerCancel={endPointerDrag}
-          style={{ touchAction: "none", cursor: zoom > 1 ? (isPanning ? "grabbing" : "grab") : "default" }}
+          style={{
+            display: "block",
+            touchAction: "none",
+            cursor: zoom > 1 ? (isPanning ? "grabbing" : "grab") : "default",
+          }}
         >
           <g>
             {regions.map((r) => (
@@ -333,7 +394,7 @@ export function KoreaBubbleMap({
                 strokeWidth={0.5 / Math.max(zoom, 1)}
                 onMouseEnter={(e) => handleEnter(r.code, e)}
                 onMouseMove={handleMove}
-                onClick={() => handleClick(r.code)}
+                onClick={(e) => handleClick(r.code, e)}
                 style={{ cursor: onSelect || (level === 0 && r.code === SEOUL_CODE) ? "pointer" : "default" }}
               />
             ))}
@@ -354,7 +415,7 @@ export function KoreaBubbleMap({
                     fillOpacity={active ? 1 : 0.3}
                     onMouseEnter={(e) => handleEnter(r.code, e)}
                     onMouseMove={handleMove}
-                    onClick={() => handleClick(r.code)}
+                    onClick={(e) => handleClick(r.code, e)}
                     style={{ cursor: "pointer" }}
                   />
                 );
@@ -367,7 +428,7 @@ export function KoreaBubbleMap({
           <div
             style={{
               position: "absolute",
-              left: Math.min(tooltipPos.x + 14, width - 160),
+              left: Math.min(tooltipPos.x + 14, tooltipPos.containerWidth - 160),
               top: tooltipPos.y + 14,
               zIndex: 2,
               pointerEvents: "none",
@@ -408,24 +469,24 @@ export function KoreaBubbleMap({
           </div>
         )}
 
-        {level === 0 && (
-          <div
-            style={{
-              position: "absolute",
-              top: 10,
-              right: 10,
-              fontSize: 9.5,
-              color: MUTED,
-              background: "rgba(255,255,255,.85)",
-              border: `1px solid ${BORDER}`,
-              borderRadius: 6,
-              padding: "4px 8px",
-              pointerEvents: "none",
-            }}
-          >
-            휠로 확대·축소, 드래그로 이동 · 서울 위에서 확대하면 구단위로 들어갑니다
-          </div>
-        )}
+        <div
+          style={{
+            position: "absolute",
+            top: 10,
+            right: 10,
+            fontSize: 9.5,
+            color: MUTED,
+            background: "rgba(255,255,255,.85)",
+            border: `1px solid ${BORDER}`,
+            borderRadius: 6,
+            padding: "4px 8px",
+            pointerEvents: "none",
+          }}
+        >
+          {level === 0
+            ? "휠로 확대·축소, 드래그로 이동 · 서울 위에서 확대하면 구단위로 들어갑니다"
+            : "휠로 확대·축소, 드래그로 이동 · 축소하면 전국으로 돌아갑니다"}
+        </div>
       </div>
     </div>
   );
