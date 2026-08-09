@@ -22,15 +22,17 @@
 // 원본은 전국 모든 시군구·읍면동을 담고 있지만, 이 프로젝트가 실제로 쓰는 건 "서울을 확대하면
 // 서울 구단위로 들어가는" 드릴다운뿐이라 서울 25개 구만 추려서 포팅했다
 // (app/(poc2)/tourismConsumptionMap/TourismDrilldownMap.tsx의 휠 줌 드릴다운과 같은 패턴).
-// 강남구 22개 행정동은 실제 경계 폴리곤이 없어(법정동 14개와 행정동 22개가 안 맞음, ./gangnamDong.ts
-// 참고) 강남구 폴리곤을 배경으로 깔고 그 위에 근사 좌표 버블만 표시하는 3번째 레벨로 처리한다.
+// 강남구 22개 행정동은 실제 경계 폴리곤이 없다(법정동 14개와 행정동 22개가 안 맞음, ./gangnamDong.ts
+// 참고). 대신 22개 근사 좌표를 씨앗점으로 Voronoi 테셀레이션을 만들고, 강남구 실제 윤곽으로
+// SVG clipPath 클리핑해서 "실측은 아니지만 근사 좌표를 반영한, 서로 겹치지 않는 구획"을 만든다
+// — 경계가 정확하지 않다는 점은 페이지 설명에서 별도로 밝혀야 한다.
 // enableGangnamDrilldown prop으로 켠 페이지에서만 서울→강남구 추가 드릴다운이 생긴다.
 
 import * as d3 from "d3";
 import { feature } from "topojson-client";
 import type { Feature, FeatureCollection, MultiPolygon, Polygon } from "geojson";
 import type { GeometryCollection, Topology } from "topojson-specification";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import sidoTopologyRaw from "./sidoTopology.json";
 import seoulGuTopologyRaw from "./seoulGuTopology.json";
 import { GANGNAM_CODE, GANGNAM_DONG } from "./gangnamDong";
@@ -65,7 +67,7 @@ export interface BubbleMapConfigProps {
   countPostfix?: string;
   percentLabel?: string;
   customTooltip?(params: TooltipProps): React.ReactNode;
-  /** 원본에는 없는 확장: 버블(원)을 그릴지 여부. 기본 true. 강남구 레벨은 항상 버블만 가능. */
+  /** 원본에는 없는 확장: 버블(원)을 그릴지 여부. 기본 true. */
   showBubbles?: boolean;
   /** 원본에는 없는 확장: 지역 클릭 콜백. */
   onSelect?(code: string): void;
@@ -269,28 +271,36 @@ export function KoreaBubbleMap({
     () => buildRegions(SEOUL_GU_FEATURES, data.sigungu ?? [], seoulGuPath),
     [data.sigungu, seoulGuPath]
   );
+  // 실측 폴리곤이 없으니 22개 근사 좌표를 씨앗점으로 Voronoi 셀을 만든다. 렌더링 시 강남구
+  // 실제 윤곽으로 clipPath 클리핑하면 서로 겹치지 않는 "구획"처럼 보이되, 경계 자체는 근사임을
+  // 페이지에서 별도로 밝힌다.
   const gangnamDongRegions = useMemo(() => {
     const byName = new Map((data.emd ?? []).map((r) => [r.code, r]));
-    return GANGNAM_DONG.map((d) => {
+    const points: [number, number][] = GANGNAM_DONG.map((d) => gangnamDongProjection([d.lng, d.lat]) ?? [0, 0]);
+    const voronoi = d3.Delaunay.from(points).voronoi([0, 0, width, height]);
+    return GANGNAM_DONG.map((d, i) => {
       const row = byName.get(d.name);
-      const [cx, cy] = gangnamDongProjection([d.lng, d.lat]) ?? [0, 0];
+      const [cx, cy] = points[i];
+      const cell = voronoi.cellPolygon(i);
+      const cellD = cell ? `M${cell.map((p) => p.join(",")).join("L")}Z` : "";
       return {
         code: d.name,
         name: row?.name ?? d.name,
         count: row?.count ?? 0,
         fill: row?.fill ?? DEFAULT_REGION_FILL,
-        d: "",
+        d: cellD,
         cx,
         cy,
       };
     });
-  }, [data.emd, gangnamDongProjection]);
+  }, [data.emd, gangnamDongProjection, width, height]);
 
   const regions = level === 0 ? sidoRegions : level === 1 ? seoulGuRegions : gangnamDongRegions;
   const activeRows = level === 0 ? data.sido : level === 1 ? data.sigungu ?? [] : data.emd ?? [];
   const maxValue = Math.max(...activeRows.map((d) => d.count), 1);
   const totalCount = activeRows.reduce((sum, d) => sum + d.count, 0);
-  const effectiveShowBubbles = showBubbles || level === 2;
+  const clipIdBase = useId();
+  const gangnamClipId = `gangnam-clip-${clipIdBase}`;
 
   useEffect(() => {
     const el = containerRef.current;
@@ -461,9 +471,13 @@ export function KoreaBubbleMap({
           }}
         >
           {level === 2 && (
-            <path d={gangnamBackgroundD} fill={DEFAULT_REGION_FILL} stroke={REGION_STROKE} strokeWidth={0.5 / Math.max(zoom, 1)} />
+            <defs>
+              <clipPath id={gangnamClipId}>
+                <path d={gangnamBackgroundD} />
+              </clipPath>
+            </defs>
           )}
-          <g>
+          <g clipPath={level === 2 ? `url(#${gangnamClipId})` : undefined}>
             {regions.map((r) => (
               <path
                 key={r.code}
@@ -485,7 +499,16 @@ export function KoreaBubbleMap({
               />
             ))}
           </g>
-          {effectiveShowBubbles && (
+          {level === 2 && (
+            <path
+              d={gangnamBackgroundD}
+              fill="none"
+              stroke={REGION_STROKE}
+              strokeWidth={1.2 / Math.max(zoom, 1)}
+              pointerEvents="none"
+            />
+          )}
+          {showBubbles && (
             <g>
               {regions.map((r) => {
                 const radius = bubbleRadius(r.count, maxValue) / Math.max(zoom, 1);

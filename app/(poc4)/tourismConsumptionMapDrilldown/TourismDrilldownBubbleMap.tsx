@@ -51,36 +51,34 @@ export default function TourismDrilldownBubbleMap({ data }: { data: KoreaMapData
             )}
           />
 
-          {level !== 2 && (
+          <div
+            style={{
+              position: "absolute",
+              left: 16,
+              bottom: 16,
+              background: "rgba(251,251,248,.92)",
+              border: `1px solid ${BORDER}`,
+              borderRadius: 8,
+              padding: "8px 10px",
+              pointerEvents: "none",
+            }}
+          >
+            <div style={{ fontSize: 9, color: MUTED, letterSpacing: "0.08em", marginBottom: 5 }}>
+              지출액 비율 (지역 색상)
+            </div>
             <div
               style={{
-                position: "absolute",
-                left: 16,
-                bottom: 16,
-                background: "rgba(251,251,248,.92)",
-                border: `1px solid ${BORDER}`,
-                borderRadius: 8,
-                padding: "8px 10px",
-                pointerEvents: "none",
+                width: 100,
+                height: 8,
+                borderRadius: 4,
+                background: `linear-gradient(90deg, ${SEQ_LOW}, ${SEQ_HIGH})`,
               }}
-            >
-              <div style={{ fontSize: 9, color: MUTED, letterSpacing: "0.08em", marginBottom: 5 }}>
-                지출액 비율 (지역 색상)
-              </div>
-              <div
-                style={{
-                  width: 100,
-                  height: 8,
-                  borderRadius: 4,
-                  background: `linear-gradient(90deg, ${SEQ_LOW}, ${SEQ_HIGH})`,
-                }}
-              />
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9, color: MUTED, marginTop: 3 }}>
-                <span>낮음</span>
-                <span>높음</span>
-              </div>
+            />
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9, color: MUTED, marginTop: 3 }}>
+              <span>낮음</span>
+              <span>높음</span>
             </div>
-          )}
+          </div>
         </div>
 
         <div style={{ border: `1px solid ${BORDER}`, borderRadius: 10, padding: 12 }}>

@@ -7,8 +7,8 @@ import { SEOUL_GU_CODES } from "../koreaBubbleMap/seoulGuCodes";
 import { GANGNAM_DONG } from "../koreaBubbleMap/gangnamDong";
 import InsightBox from "../InsightBox";
 
-// 전국·서울 레벨은 실측 폴리곤이 있어 poc4 1번째 페이지처럼 지역 색상(면적)으로 빈도를 표시한다.
-// 강남구 레벨은 행정동 단위 폴리곤이 없어(아래 emd 주석 참고) 이 색은 쓰이지 않고 버블만 남는다.
+// poc4 1번째 페이지처럼 지역 색상(면적)으로 빈도를 표시한다. 강남구 레벨은 실측 행정동 폴리곤이
+// 없어(아래 emd 주석 참고) KoreaBubbleMap이 근사 좌표로 Voronoi 구획을 만들어 색칠한다.
 const SEQ_LOW = "#cde2fb";
 const SEQ_HIGH = "#0d366b";
 const seqColor = d3.interpolateRgb(SEQ_LOW, SEQ_HIGH);
@@ -46,11 +46,11 @@ export default async function TourismConsumptionMapDrilldownPage() {
 
   const gangnamRows = await readCsv("6서울강남구연간", "20260807114422_지역별 지출액.csv");
   const gangnamShare = new Map(gangnamRows.map(([dong, ratio]) => [dong, Number(ratio)]));
-  const emd = GANGNAM_DONG.map((d) => ({
-    code: d.name,
-    name: d.name,
-    count: gangnamShare.get(d.name) ?? 0,
-  }));
+  const gangnamMax = Math.max(...Array.from(gangnamShare.values()), 1);
+  const emd = GANGNAM_DONG.map((d) => {
+    const count = gangnamShare.get(d.name) ?? 0;
+    return { code: d.name, name: d.name, count, fill: seqColor(count / gangnamMax) };
+  });
 
   return (
     <div style={{ padding: 24, fontFamily: "ui-monospace, monospace", fontSize: 13 }}>
@@ -61,10 +61,10 @@ export default async function TourismConsumptionMapDrilldownPage() {
         data/6전국연간, data/6서울연간, data/6서울강남구연간 · 지역별 지출액.csv · 마우스 휠로
         지도를 확대하면 전국(17개 시도) → 서울(25개 구) → 강남구(22개 동) 순으로 더 상세한
         지도로 전환됩니다. 지역을 클릭하거나 상단 breadcrumb를 눌러서도 이동할 수 있습니다.
-        서울→강남구 구간에만 상세 데이터가 있어 다른 구는 더 깊이 들어가지 않습니다. 전국·서울
-        레벨은 지역 색상으로 지출액 비율을 표시합니다. 강남구 22개 행정동은 실측 경계 폴리곤이
-        없어(법정동 14개와 행정동 22개 구획이 다름) 색칠 대신 강남구 전체 윤곽 위 버블 크기로만
-        표시됩니다.
+        서울→강남구 구간에만 상세 데이터가 있어 다른 구는 더 깊이 들어가지 않습니다. 모든 레벨을
+        지역 색상으로 표시합니다. 다만 강남구 22개 행정동은 실측 경계 폴리곤이 없어(법정동 14개와
+        행정동 22개 구획이 다름) 22개 동 주민센터 근사 좌표를 기준으로 Voronoi 구획을 만들어
+        강남구 실제 윤곽에 맞춰 잘라낸 것입니다 — 실제 행정동 경계와는 다를 수 있습니다.
       </p>
       <InsightBox
         items={[
