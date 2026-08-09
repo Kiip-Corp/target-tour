@@ -81,7 +81,9 @@ export default async function ForeignVisitorRegionMapBubblePage() {
         맞게 직접 포팅한 ../koreaBubbleMap/KoreaBubbleMap — 원본은 D3로 DOM을 직접 그리는
         useEffect에 cleanup이 없어 Next.js 기본 Strict Mode의 개발 모드 이중 마운트에서 중복
         렌더링이 발생했습니다. 원본이 내장한 시도 단위 지리 데이터만 재사용하고 렌더링은 React가
-        선언적으로 그리도록 새로 구현해, 지역 채우기 색을 지정하는 것도 정식 prop으로 지원합니다.)
+        선언적으로 그리도록 새로 구현해, 지역 채우기 색을 지정하는 것도 정식 prop으로 지원합니다.
+        서울 위에서 휠로 확대하면 서울 25개 구단위 지도로 드릴다운됩니다 — 다만 이 7번 데이터셋은
+        시도 단위까지만 있어 구별 방문·소비 비율 데이터는 없고, 구 경계·이름만 확인할 수 있습니다.)
       </p>
       <InsightBox
         items={[

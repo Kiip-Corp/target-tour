@@ -13,19 +13,23 @@
 //  - peerDependencies는 react>=18이지만 실제 개발/테스트는 React 18(@types/react ^18.2.33)
 //    기준이라 React 19에서 검증되지 않았고, 0.0.4로 README에도 "내부 개발/테스트 중"이라 명시.
 //
-// 이 포팅본은 원본이 내장했던 시도(sido) 단위 topojson 지리 데이터(./sidoTopology.json,
-// 원출처: http://www.gisdeveloper.co.kr/?p=2332 · https://github.com/southkorea/southkorea-maps,
-// 원본 라이브러리는 MIT 라이선스)만 그대로 재사용하고, 렌더링은 D3로 DOM을 직접 조작하는 대신
-// React가 선언적으로 그리는 방식으로 새로 구현했다 — effect가 관리할 부수효과가 없으므로
-// StrictMode 이중 마운트에서도 중복 렌더링 문제가 구조적으로 발생하지 않는다.
-// 시군구(sigungu)·읍면동(emd) 단위 지리 데이터는 이 프로젝트에서 쓰지 않아 포팅하지 않았다.
+// 이 포팅본은 원본이 내장했던 시도(sido)·서울 시군구(sigungu) 단위 topojson 지리 데이터
+// (./sidoTopology.json, ./seoulGuTopology.json — 원출처: http://www.gisdeveloper.co.kr/?p=2332 ·
+// https://github.com/southkorea/southkorea-maps, 원본 라이브러리는 MIT 라이선스)만 그대로
+// 재사용하고, 렌더링은 D3로 DOM을 직접 조작하는 대신 React가 선언적으로 그리는 방식으로 새로
+// 구현했다 — effect가 관리할 부수효과가 없으므로 StrictMode 이중 마운트에서도 중복 렌더링
+// 문제가 구조적으로 발생하지 않는다.
+// 원본은 전국 모든 시군구·읍면동을 담고 있지만, 이 프로젝트가 실제로 쓰는 건 "서울을 확대하면
+// 서울 구단위로 들어가는" 2단계 드릴다운뿐이라 서울 25개 구만 추려서 포팅했다
+// (app/(poc2)/tourismConsumptionMap/TourismDrilldownMap.tsx의 휠 줌 드릴다운과 같은 패턴).
 
 import * as d3 from "d3";
 import { feature } from "topojson-client";
-import type { FeatureCollection, MultiPolygon, Polygon } from "geojson";
+import type { Feature, FeatureCollection, MultiPolygon, Polygon } from "geojson";
 import type { GeometryCollection, Topology } from "topojson-specification";
 import { useEffect, useMemo, useRef, useState } from "react";
 import sidoTopologyRaw from "./sidoTopology.json";
+import seoulGuTopologyRaw from "./seoulGuTopology.json";
 
 export interface MapData {
   code: string;
@@ -37,7 +41,7 @@ export interface MapData {
 
 export interface KoreaMapData {
   sido: MapData[];
-  /** 이 포팅본에서는 시군구 지리 데이터를 포팅하지 않아 렌더링에 쓰이지 않는다. */
+  /** 서울을 확대했을 때 보여줄 서울 25개 구 데이터. 생략하면 기본 회색으로 이름만 표시. */
   sigungu?: MapData[];
   /** 이 포팅본에서는 읍면동 지리 데이터를 포팅하지 않아 렌더링에 쓰이지 않는다. */
   emd?: MapData[];
@@ -69,18 +73,58 @@ const BUBBLE_FILL = "#253FEB";
 const INK = "#070707";
 const MUTED = "#6B7280";
 const BORDER = "#eef0f5";
+const SEOUL_CODE = "1100000000";
+
+type RegionProps = { CODE: string; ENG_NM: string; KOR_NM: string };
 
 const sidoTopology = sidoTopologyRaw as unknown as Topology;
-const SIDO_FEATURE_COLLECTION = feature(
-  sidoTopology,
-  sidoTopology.objects.sido as GeometryCollection
-) as FeatureCollection<Polygon | MultiPolygon, { CODE: string; ENG_NM: string; KOR_NM: string }>;
+const SIDO_FEATURES = (
+  feature(sidoTopology, sidoTopology.objects.sido as GeometryCollection) as FeatureCollection<
+    Polygon | MultiPolygon,
+    RegionProps
+  >
+).features;
+const SEOUL_SIDO_FEATURE = SIDO_FEATURES.find((f) => f.properties.CODE === SEOUL_CODE) as Feature<
+  Polygon | MultiPolygon,
+  RegionProps
+>;
+
+const seoulGuTopology = seoulGuTopologyRaw as unknown as Topology;
+const SEOUL_GU_FEATURES = (
+  feature(seoulGuTopology, seoulGuTopology.objects.sigungu as GeometryCollection) as FeatureCollection<
+    Polygon | MultiPolygon,
+    RegionProps
+  >
+).features;
+
+type Level = 0 | 1;
 
 function bubbleRadius(count: number, max: number) {
   if (max <= 0 || count <= 0) return 0;
   const ratio = count / max;
   const raw = ratio < 0.1 ? 3 : 30 * ratio;
   return raw % 2 === 0 ? raw : raw + 1;
+}
+
+function buildRegions(
+  features: Feature<Polygon | MultiPolygon, RegionProps>[],
+  rows: MapData[],
+  path: d3.GeoPath
+) {
+  const byCode = new Map(rows.map((r) => [r.code, r]));
+  return features.map((f) => {
+    const row = byCode.get(f.properties.CODE);
+    const [cx, cy] = path.centroid(f);
+    return {
+      code: f.properties.CODE,
+      name: row?.name ?? f.properties.KOR_NM,
+      count: row?.count ?? 0,
+      fill: row?.fill ?? DEFAULT_REGION_FILL,
+      d: path(f) ?? "",
+      cx,
+      cy,
+    };
+  });
 }
 
 export function KoreaBubbleMap({
@@ -97,15 +141,39 @@ export function KoreaBubbleMap({
   const containerRef = useRef<HTMLDivElement>(null);
   const [hoveredCode, setHoveredCode] = useState<string | null>(null);
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null);
+  const [level, setLevel] = useState<Level>(0);
 
   const FULL_VIEW = useMemo(() => ({ x: 0, y: 0, w: width, h: height }), [width, height]);
   const [view, setView] = useState(FULL_VIEW);
-  const [prevFullView, setPrevFullView] = useState(FULL_VIEW);
-  if (prevFullView.w !== FULL_VIEW.w || prevFullView.h !== FULL_VIEW.h) {
-    setPrevFullView(FULL_VIEW);
+  const [prevResetKey, setPrevResetKey] = useState(`${width}x${height}x${level}`);
+  const resetKey = `${width}x${height}x${level}`;
+  if (prevResetKey !== resetKey) {
+    setPrevResetKey(resetKey);
     setView(FULL_VIEW);
   }
   const zoom = FULL_VIEW.w / view.w;
+  const viewRef = useRef(view);
+  useEffect(() => {
+    viewRef.current = view;
+  }, [view]);
+
+  const sidoProjection = useMemo(() => d3.geoMercator().fitSize([width, height], { type: "FeatureCollection", features: SIDO_FEATURES }), [width, height]);
+  const sidoPath = useMemo(() => d3.geoPath(sidoProjection), [sidoProjection]);
+  const seoulGuProjection = useMemo(
+    () => d3.geoMercator().fitSize([width, height], { type: "FeatureCollection", features: SEOUL_GU_FEATURES }),
+    [width, height]
+  );
+  const seoulGuPath = useMemo(() => d3.geoPath(seoulGuProjection), [seoulGuProjection]);
+
+  const sidoRegions = useMemo(() => buildRegions(SIDO_FEATURES, data.sido, sidoPath), [data.sido, sidoPath]);
+  const seoulGuRegions = useMemo(
+    () => buildRegions(SEOUL_GU_FEATURES, data.sigungu ?? [], seoulGuPath),
+    [data.sigungu, seoulGuPath]
+  );
+  const regions = level === 0 ? sidoRegions : seoulGuRegions;
+  const activeRows = level === 0 ? data.sido : data.sigungu ?? [];
+  const maxValue = Math.max(...activeRows.map((d) => d.count), 1);
+  const totalCount = activeRows.reduce((sum, d) => sum + d.count, 0);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -115,46 +183,32 @@ export function KoreaBubbleMap({
       const r = el.getBoundingClientRect();
       const fx = (e.clientX - r.left) / r.width;
       const fy = (e.clientY - r.top) / r.height;
-      const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
-      setView((v) => {
-        const sx = v.x + fx * v.w;
-        const sy = v.y + fy * v.h;
-        const w = Math.min(FULL_VIEW.w, Math.max(FULL_VIEW.w / 8, v.w / factor));
-        const h = w * (FULL_VIEW.h / FULL_VIEW.w);
-        return { x: sx - fx * w, y: sy - fy * h, w, h };
-      });
+      const zoomingIn = e.deltaY < 0;
+      const factor = zoomingIn ? 1.15 : 1 / 1.15;
+      const v = viewRef.current;
+      const sx = v.x + fx * v.w;
+      const sy = v.y + fy * v.h;
+      const newW = v.w / factor;
+
+      if (level === 0 && zoomingIn && newW < width / 2.4) {
+        const lonlat = sidoProjection.invert?.([sx, sy]);
+        if (lonlat && d3.geoContains(SEOUL_SIDO_FEATURE, lonlat)) {
+          setLevel(1);
+          return;
+        }
+      }
+      if (level === 1 && !zoomingIn && newW > width * 1.05) {
+        setLevel(0);
+        return;
+      }
+
+      const w = Math.min(width, Math.max(width / 8, newW));
+      const h = w * (height / width);
+      setView({ x: sx - fx * w, y: sy - fy * h, w, h });
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
-  }, [FULL_VIEW]);
-
-  const projection = useMemo(
-    () => d3.geoMercator().fitSize([width, height], SIDO_FEATURE_COLLECTION),
-    [width, height]
-  );
-  const path = useMemo(() => d3.geoPath(projection), [projection]);
-
-  const byCode = useMemo(() => new Map(data.sido.map((d) => [d.code, d])), [data.sido]);
-  const maxValue = Math.max(...data.sido.map((d) => d.count), 1);
-  const totalCount = data.sido.reduce((sum, d) => sum + d.count, 0);
-
-  const regions = useMemo(
-    () =>
-      SIDO_FEATURE_COLLECTION.features.map((f) => {
-        const row = byCode.get(f.properties.CODE);
-        const [cx, cy] = path.centroid(f);
-        return {
-          code: f.properties.CODE,
-          name: row?.name ?? f.properties.KOR_NM,
-          count: row?.count ?? 0,
-          fill: row?.fill ?? DEFAULT_REGION_FILL,
-          d: path(f) ?? "",
-          cx,
-          cy,
-        };
-      }),
-    [byCode, path]
-  );
+  }, [level, width, height, sidoProjection]);
 
   const hovered = hoveredCode ? regions.find((r) => r.code === hoveredCode) : null;
 
@@ -167,99 +221,147 @@ export function KoreaBubbleMap({
     const r = containerRef.current?.getBoundingClientRect();
     if (r) setTooltipPos({ x: e.clientX - r.left, y: e.clientY - r.top });
   };
+  const handleClick = (code: string) => {
+    if (level === 0 && code === SEOUL_CODE) {
+      setLevel(1);
+      return;
+    }
+    onSelect?.(code);
+  };
 
   return (
     <div
-      ref={containerRef}
       className="react-korea-bubble-map"
-      style={{ position: "relative", width, height, overflow: "hidden", borderRadius: 20 }}
+      style={{ width, fontFamily: "ui-monospace, monospace" }}
       onMouseLeave={() => setHoveredCode(null)}
     >
-      <svg viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`} width={width} height={height}>
-        <g>
-          {regions.map((r) => (
-            <path
-              key={r.code}
-              d={r.d}
-              fill={r.fill}
-              stroke={REGION_STROKE}
-              strokeWidth={0.5 / Math.max(zoom, 1)}
-              onMouseEnter={(e) => handleEnter(r.code, e)}
-              onMouseMove={handleMove}
-              onClick={() => onSelect?.(r.code)}
-              style={{ cursor: onSelect ? "pointer" : "default" }}
-            />
-          ))}
-        </g>
-        {showBubbles && (
-          <g>
-            {regions.map((r) => {
-              const radius = bubbleRadius(r.count, maxValue) / Math.max(zoom, 1);
-              if (radius <= 0) return null;
-              const active = r.code === hoveredCode;
-              return (
-                <circle
-                  key={r.code}
-                  cx={r.cx}
-                  cy={r.cy}
-                  r={radius}
-                  fill={BUBBLE_FILL}
-                  fillOpacity={active ? 1 : 0.3}
-                  onMouseEnter={(e) => handleEnter(r.code, e)}
-                  onMouseMove={handleMove}
-                  onClick={() => onSelect?.(r.code)}
-                  style={{ cursor: onSelect ? "pointer" : "default" }}
-                />
-              );
-            })}
-          </g>
-        )}
-      </svg>
-
-      {hovered && tooltipPos && (
-        <div
-          style={{
-            position: "absolute",
-            left: Math.min(tooltipPos.x + 14, width - 160),
-            top: tooltipPos.y + 14,
-            zIndex: 2,
-            pointerEvents: "none",
-            background: "#ffffff",
-            borderRadius: 4,
-            border: `1px solid ${BORDER}`,
-            boxShadow: "0px 4px 20px rgba(0, 0, 0, 0.05)",
-            fontSize: 14,
-            lineHeight: "18px",
-            color: INK,
-            padding: 16,
-          }}
-        >
-          {customTooltip ? (
-            customTooltip({
-              name: hovered.name,
-              count: hovered.count,
-              percent: totalCount === 0 ? 0 : Math.floor((hovered.count / totalCount) * 100),
-            })
-          ) : (
-            <>
-              <strong style={{ display: "inline-block", fontWeight: 700, marginBottom: 8 }}>
-                {hovered.name}
-              </strong>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                <span style={{ fontWeight: 400, marginRight: 10 }}>{countLabel}</span>
-                <span>
-                  {hovered.count}
-                  {countPostfix}
-                </span>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <span style={{ fontWeight: 400, marginRight: 10, color: MUTED }}>{percentLabel}</span>
-                <span>{totalCount === 0 ? 0 : Math.floor((hovered.count / totalCount) * 100)}%</span>
-              </div>
-            </>
-          )}
+      {level === 1 && (
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6, fontSize: 12 }}>
+          <button
+            onClick={() => setLevel(0)}
+            style={{
+              border: "none",
+              background: "none",
+              color: MUTED,
+              cursor: "pointer",
+              padding: 0,
+              fontFamily: "ui-monospace, monospace",
+              fontSize: 12,
+              textDecoration: "underline",
+            }}
+          >
+            전국
+          </button>
+          <span style={{ color: "#C7C6BF" }}>›</span>
+          <span style={{ color: INK, fontWeight: 600 }}>서울특별시</span>
         </div>
       )}
+      <div ref={containerRef} style={{ position: "relative", width, height, overflow: "hidden", borderRadius: 20 }}>
+        <svg viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`} width={width} height={height}>
+          <g>
+            {regions.map((r) => (
+              <path
+                key={r.code}
+                d={r.d}
+                fill={r.fill}
+                stroke={REGION_STROKE}
+                strokeWidth={0.5 / Math.max(zoom, 1)}
+                onMouseEnter={(e) => handleEnter(r.code, e)}
+                onMouseMove={handleMove}
+                onClick={() => handleClick(r.code)}
+                style={{ cursor: onSelect || (level === 0 && r.code === SEOUL_CODE) ? "pointer" : "default" }}
+              />
+            ))}
+          </g>
+          {showBubbles && (
+            <g>
+              {regions.map((r) => {
+                const radius = bubbleRadius(r.count, maxValue) / Math.max(zoom, 1);
+                if (radius <= 0) return null;
+                const active = r.code === hoveredCode;
+                return (
+                  <circle
+                    key={r.code}
+                    cx={r.cx}
+                    cy={r.cy}
+                    r={radius}
+                    fill={BUBBLE_FILL}
+                    fillOpacity={active ? 1 : 0.3}
+                    onMouseEnter={(e) => handleEnter(r.code, e)}
+                    onMouseMove={handleMove}
+                    onClick={() => handleClick(r.code)}
+                    style={{ cursor: "pointer" }}
+                  />
+                );
+              })}
+            </g>
+          )}
+        </svg>
+
+        {hovered && tooltipPos && (
+          <div
+            style={{
+              position: "absolute",
+              left: Math.min(tooltipPos.x + 14, width - 160),
+              top: tooltipPos.y + 14,
+              zIndex: 2,
+              pointerEvents: "none",
+              background: "#ffffff",
+              borderRadius: 4,
+              border: `1px solid ${BORDER}`,
+              boxShadow: "0px 4px 20px rgba(0, 0, 0, 0.05)",
+              fontSize: 14,
+              lineHeight: "18px",
+              color: INK,
+              padding: 16,
+            }}
+          >
+            {customTooltip ? (
+              customTooltip({
+                name: hovered.name,
+                count: hovered.count,
+                percent: totalCount === 0 ? 0 : Math.floor((hovered.count / totalCount) * 100),
+              })
+            ) : (
+              <>
+                <strong style={{ display: "inline-block", fontWeight: 700, marginBottom: 8 }}>
+                  {hovered.name}
+                </strong>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                  <span style={{ fontWeight: 400, marginRight: 10 }}>{countLabel}</span>
+                  <span>
+                    {hovered.count}
+                    {countPostfix}
+                  </span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span style={{ fontWeight: 400, marginRight: 10, color: MUTED }}>{percentLabel}</span>
+                  <span>{totalCount === 0 ? 0 : Math.floor((hovered.count / totalCount) * 100)}%</span>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {level === 0 && (
+          <div
+            style={{
+              position: "absolute",
+              top: 10,
+              right: 10,
+              fontSize: 9.5,
+              color: MUTED,
+              background: "rgba(255,255,255,.85)",
+              border: `1px solid ${BORDER}`,
+              borderRadius: 6,
+              padding: "4px 8px",
+              pointerEvents: "none",
+            }}
+          >
+            서울 위에서 휠로 확대하면 구단위로 들어갑니다
+          </div>
+        )}
+      </div>
     </div>
   );
 }
