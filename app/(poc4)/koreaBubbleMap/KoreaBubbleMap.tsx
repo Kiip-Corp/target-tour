@@ -27,7 +27,7 @@ import * as d3 from "d3";
 import { feature } from "topojson-client";
 import type { Feature, FeatureCollection, MultiPolygon, Polygon } from "geojson";
 import type { GeometryCollection, Topology } from "topojson-specification";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import sidoTopologyRaw from "./sidoTopology.json";
 import seoulGuTopologyRaw from "./seoulGuTopology.json";
 
@@ -157,6 +157,61 @@ export function KoreaBubbleMap({
     viewRef.current = view;
   }, [view]);
 
+  // 뷰(x,y,w,h)가 전체 지도 범위를 벗어나 빈 공간을 보여주지 않도록 드래그·휠 줌 모두에 적용하는 클램프.
+  const clampView = useCallback(
+    (v: typeof FULL_VIEW) => {
+      const maxX = Math.max(FULL_VIEW.x, FULL_VIEW.x + FULL_VIEW.w - v.w);
+      const maxY = Math.max(FULL_VIEW.y, FULL_VIEW.y + FULL_VIEW.h - v.h);
+      return {
+        ...v,
+        x: Math.min(Math.max(v.x, FULL_VIEW.x), maxX),
+        y: Math.min(Math.max(v.y, FULL_VIEW.y), maxY),
+      };
+    },
+    [FULL_VIEW]
+  );
+
+  const [isPanning, setIsPanning] = useState(false);
+  const dragRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    startView: typeof FULL_VIEW;
+  } | null>(null);
+  const justDraggedRef = useRef(false);
+
+  const handlePointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (zoom <= 1) return; // 전체 화면일 땐 드래그할 여지가 없다
+    e.currentTarget.setPointerCapture(e.pointerId);
+    justDraggedRef.current = false;
+    dragRef.current = { pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, startView: viewRef.current };
+    setIsPanning(true);
+  };
+  const handlePointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
+    const d = dragRef.current;
+    if (!d || d.pointerId !== e.pointerId) return;
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const dxPx = e.clientX - d.startX;
+    const dyPx = e.clientY - d.startY;
+    if (Math.abs(dxPx) > 3 || Math.abs(dyPx) > 3) justDraggedRef.current = true;
+    if (!justDraggedRef.current) return;
+    const scaleX = d.startView.w / rect.width;
+    const scaleY = d.startView.h / rect.height;
+    setView(
+      clampView({
+        x: d.startView.x - dxPx * scaleX,
+        y: d.startView.y - dyPx * scaleY,
+        w: d.startView.w,
+        h: d.startView.h,
+      })
+    );
+  };
+  const endPointerDrag = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (dragRef.current?.pointerId === e.pointerId) dragRef.current = null;
+    setIsPanning(false);
+  };
+
   const sidoProjection = useMemo(() => d3.geoMercator().fitSize([width, height], { type: "FeatureCollection", features: SIDO_FEATURES }), [width, height]);
   const sidoPath = useMemo(() => d3.geoPath(sidoProjection), [sidoProjection]);
   const seoulGuProjection = useMemo(
@@ -204,11 +259,11 @@ export function KoreaBubbleMap({
 
       const w = Math.min(width, Math.max(width / 8, newW));
       const h = w * (height / width);
-      setView({ x: sx - fx * w, y: sy - fy * h, w, h });
+      setView(clampView({ x: sx - fx * w, y: sy - fy * h, w, h }));
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
-  }, [level, width, height, sidoProjection]);
+  }, [level, width, height, sidoProjection, clampView]);
 
   const hovered = hoveredCode ? regions.find((r) => r.code === hoveredCode) : null;
 
@@ -222,6 +277,7 @@ export function KoreaBubbleMap({
     if (r) setTooltipPos({ x: e.clientX - r.left, y: e.clientY - r.top });
   };
   const handleClick = (code: string) => {
+    if (justDraggedRef.current) return; // 드래그 끝의 합성 클릭은 무시
     if (level === 0 && code === SEOUL_CODE) {
       setLevel(1);
       return;
@@ -257,7 +313,16 @@ export function KoreaBubbleMap({
         </div>
       )}
       <div ref={containerRef} style={{ position: "relative", width, height, overflow: "hidden", borderRadius: 20 }}>
-        <svg viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`} width={width} height={height}>
+        <svg
+          viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`}
+          width={width}
+          height={height}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={endPointerDrag}
+          onPointerCancel={endPointerDrag}
+          style={{ touchAction: "none", cursor: zoom > 1 ? (isPanning ? "grabbing" : "grab") : "default" }}
+        >
           <g>
             {regions.map((r) => (
               <path
@@ -298,7 +363,7 @@ export function KoreaBubbleMap({
           )}
         </svg>
 
-        {hovered && tooltipPos && (
+        {hovered && tooltipPos && !isPanning && (
           <div
             style={{
               position: "absolute",
@@ -358,7 +423,7 @@ export function KoreaBubbleMap({
               pointerEvents: "none",
             }}
           >
-            서울 위에서 휠로 확대하면 구단위로 들어갑니다
+            휠로 확대·축소, 드래그로 이동 · 서울 위에서 확대하면 구단위로 들어갑니다
           </div>
         )}
       </div>
