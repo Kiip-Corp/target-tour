@@ -93,6 +93,16 @@ const NAV_SECTIONS = [
     ],
   },
   {
+    title: "PoC4",
+    items: [
+      {
+        href: "/foreignVisitorRegionMapBubble",
+        label: "foreignVisitorRegionMapBubble",
+        desc: "국가별 방한객 지역 분포 지도 (7, @tenqube/react-korea-bubble-map을 React 19용으로 직접 포팅)",
+      },
+    ],
+  },
+  {
     title: "KTO API 테스트",
     items: [
       { href: "/areaTarSjrnDsList", label: "areaTarSjrnDsList", desc: "관광 체류 강도" },
