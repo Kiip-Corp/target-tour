@@ -38,16 +38,33 @@ async function readRows(dir: string, suffix: string) {
     .map((line) => line.split(","));
 }
 
+async function findDataDir(folderSuffix: string) {
+  const entries = await readdir(DATA_ROOT);
+  const target = `7${folderSuffix}`.normalize("NFC");
+  const match = entries.find((e) => e.normalize("NFC") === target);
+  if (!match) throw new Error(`${DATA_ROOT}에서 "${target}" 폴더를 찾지 못했습니다.`);
+  return path.join(DATA_ROOT, match);
+}
+
 async function loadMonthlySeries(
   folderSuffix: string,
   visitKey: string,
   spendKey: string
 ): Promise<{ visit: Map<number, number>; spend: Map<number, number> }> {
-  const entries = await readdir(DATA_ROOT);
-  const target = `7${folderSuffix}`.normalize("NFC");
-  const match = entries.find((e) => e.normalize("NFC") === target);
-  if (!match) throw new Error(`${DATA_ROOT}에서 "${target}" 폴더를 찾지 못했습니다.`);
-  const yearDir = path.join(DATA_ROOT, match, YEAR);
+  const yearDir = path.join(await findDataDir(`${folderSuffix}월간2020`.replace("월간2020", "월간") + ""), "");
+  // 태국/홍콩은 폴더명이 "7태국월간"/"7홍콩월간"(연도 접미사 없음)이라 위 replace로는 못 맞추므로
+  // 실제로는 아래에서 폴더 접미사를 그대로 넘겨받아 처리한다(이 함수는 사용하지 않음 — 정리용 no-op).
+  void yearDir;
+  throw new Error("unused");
+}
+
+async function loadMonthly2025(
+  monthlyFolderSuffix: string,
+  visitKey: string,
+  spendKey: string
+): Promise<{ visit: Map<number, number>; spend: Map<number, number> }> {
+  const dir = await findDataDir(monthlyFolderSuffix);
+  const yearDir = path.join(dir, YEAR);
 
   const [visitRows, spendRows] = await Promise.all([
     readRows(yearDir, "방문 추이.csv"),
@@ -67,7 +84,45 @@ async function loadMonthlySeries(
   return { visit, spend };
 }
 
+async function loadAnnual(
+  annualFolderSuffix: string,
+  visitKey: string,
+  spendKey: string
+): Promise<{ visit: Map<number, number>; spend: Map<number, number> }> {
+  const dir = await findDataDir(annualFolderSuffix);
+  const [visitRows, spendRows] = await Promise.all([
+    readRows(dir, "방문 추이.csv"),
+    readRows(dir, "관광소비 추이.csv"),
+  ]);
+
+  // 방문 추이.csv는 연간 폴더에서는 연도(2020~2025) 단위로 이미 집계돼 있다.
+  const visit = new Map<number, number>();
+  for (const cols of visitRows) {
+    if (cols[1] !== visitKey) continue;
+    const year = Number(cols[0]);
+    if (year < 2020) continue;
+    visit.set(year, Number(cols[4]));
+  }
+
+  // 관광소비 추이.csv는 연간 폴더에서도 월별(2018-01~2025-12)이라, 연도별 12개월 평균으로 직접 집계한다.
+  const spendByYear = new Map<number, number[]>();
+  for (const cols of spendRows) {
+    if (cols[1] !== spendKey) continue;
+    const year = Number(cols[0].slice(0, 4));
+    if (year < 2020) continue;
+    const arr = spendByYear.get(year) ?? [];
+    arr.push(Number(cols[3]));
+    spendByYear.set(year, arr);
+  }
+  const spend = new Map<number, number>();
+  for (const [year, values] of spendByYear) {
+    spend.set(year, values.reduce((a, b) => a + b, 0) / values.length);
+  }
+  return { visit, spend };
+}
+
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
+const YEARS = [2020, 2021, 2022, 2023, 2024, 2025];
 
 export default async function CountryMonthlySeasonalityPage() {
   const perCountry = await Promise.all(
