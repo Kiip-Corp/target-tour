@@ -105,6 +105,11 @@ const NAV_SECTIONS = [
         label: "tourismConsumptionMapDrilldown",
         desc: "관광소비 지역별 지출액 전국→서울→강남구 드릴다운 (6)",
       },
+      {
+        href: "/countryMonthlySeasonality",
+        label: "countryMonthlySeasonality",
+        desc: "국가별 월별 방한 성수기 — 마케팅 타이밍 (7 월간)",
+      },
     ],
   },
   {

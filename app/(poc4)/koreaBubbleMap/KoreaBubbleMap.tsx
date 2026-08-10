@@ -120,6 +120,15 @@ function bubbleRadius(count: number, max: number) {
   return raw % 2 === 0 ? raw : raw + 1;
 }
 
+// d3.geoPath()의 `d` 문자열 출력은 내부적으로 소수점 자리수가 이미 반올림돼 있어
+// 서버(Node)와 브라우저의 삼각함수 구현이 마지막 몇 비트에서 갈려도 결과가 같지만,
+// centroid()/투영 함수가 직접 반환하는 raw 좌표(cx/cy)는 반올림이 없어 그 차이가
+// 그대로 드러난다 — 라벨 <text>의 x/y에 쓰면 SSR과 클라이언트 값이 미세하게 달라
+// hydration mismatch 경고가 뜬다. 좌표를 소수 둘째 자리로 반올림해 직렬화를 맞춘다.
+function round2(n: number) {
+  return Math.round(n * 100) / 100;
+}
+
 function buildRegions(
   features: Feature<Polygon | MultiPolygon, RegionProps>[],
   rows: MapData[],
@@ -135,8 +144,8 @@ function buildRegions(
       count: row?.count ?? 0,
       fill: row?.fill ?? DEFAULT_REGION_FILL,
       d: path(f) ?? "",
-      cx,
-      cy,
+      cx: round2(cx),
+      cy: round2(cy),
     };
   });
 }
@@ -276,13 +285,16 @@ export function KoreaBubbleMap({
   // 페이지에서 별도로 밝힌다.
   const gangnamDongRegions = useMemo(() => {
     const byName = new Map((data.emd ?? []).map((r) => [r.code, r]));
-    const points: [number, number][] = GANGNAM_DONG.map((d) => gangnamDongProjection([d.lng, d.lat]) ?? [0, 0]);
+    const points: [number, number][] = GANGNAM_DONG.map((d) => {
+      const [px, py] = gangnamDongProjection([d.lng, d.lat]) ?? [0, 0];
+      return [round2(px), round2(py)];
+    });
     const voronoi = d3.Delaunay.from(points).voronoi([0, 0, width, height]);
     return GANGNAM_DONG.map((d, i) => {
       const row = byName.get(d.name);
       const [cx, cy] = points[i];
       const cell = voronoi.cellPolygon(i);
-      const cellD = cell ? `M${cell.map((p) => p.join(",")).join("L")}Z` : "";
+      const cellD = cell ? `M${cell.map(([px, py]) => `${round2(px)},${round2(py)}`).join("L")}Z` : "";
       return {
         code: d.name,
         name: row?.name ?? d.name,
