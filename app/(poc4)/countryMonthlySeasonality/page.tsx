@@ -17,7 +17,7 @@ const COUNTRIES = [
   { monthlyFolder: "홍콩월간", annualFolder: "홍콩연간", label: "홍콩", visitKey: "홍콩인", spendKey: "홍콩", color: "#008300" },
 ];
 
-const YEAR = "2025";
+const MONTHLY_YEARS = [2020, 2021, 2022, 2023, 2024, 2025];
 
 async function findCsv(dir: string, suffix: string) {
   const entries = await readdir(dir);
@@ -46,29 +46,41 @@ async function findDataDir(folderSuffix: string) {
   return path.join(DATA_ROOT, match);
 }
 
-async function loadMonthly2025(
+// 월간 폴더는 연도별 하위 폴더(2020~2025)에 각각 12개월치 파일이 나뉘어 있어, 전부 합쳐
+// "YYYYMM(예: 202003) → 값" 하나의 연속 시계열로 만든다 — 셀렉트박스로 임의의 시작~종료
+// 월을 고르려면 연도 하나로 끊긴 데이터가 아니라 이렇게 이어붙인 전체 구간이 필요하다.
+async function loadMonthlyAll(
   monthlyFolderSuffix: string,
   visitKey: string,
   spendKey: string
 ): Promise<{ visit: Map<number, number>; spend: Map<number, number> }> {
   const dir = await findDataDir(monthlyFolderSuffix);
-  const yearDir = path.join(dir, YEAR);
-
-  const [visitRows, spendRows] = await Promise.all([
-    readRows(yearDir, "방문 추이.csv"),
-    readRows(yearDir, "관광소비 추이.csv"),
-  ]);
-
   const visit = new Map<number, number>();
-  for (const cols of visitRows) {
-    if (cols[1] !== visitKey) continue;
-    visit.set(Number(cols[0].slice(4, 6)), Number(cols[4]));
-  }
   const spend = new Map<number, number>();
-  for (const cols of spendRows) {
-    if (cols[1] !== spendKey) continue;
-    spend.set(Number(cols[0].slice(4, 6)), Number(cols[3]));
-  }
+
+  await Promise.all(
+    MONTHLY_YEARS.map(async (year) => {
+      const yearDir = path.join(dir, String(year));
+      // 대만·태국의 2023 폴더처럼 실제로 비어 있는 연도가 있다(원본 데이터 수집 누락으로 보임) —
+      // 이런 경우는 크래시시키지 않고 해당 연도만 건너뛴다. 그 외 사유로 파일을 못 찾는 경우와
+      // 구분하기 위해, 디렉터리 자체가 비어 있을 때만 조용히 넘어가고 그 외 에러는 그대로 던진다.
+      const dirFiles = await readdir(yearDir).catch(() => []);
+      if (dirFiles.filter((f) => !f.startsWith(".")).length === 0) return;
+
+      const [visitRows, spendRows] = await Promise.all([
+        readRows(yearDir, "방문 추이.csv"),
+        readRows(yearDir, "관광소비 추이.csv"),
+      ]);
+      for (const cols of visitRows) {
+        if (cols[1] !== visitKey) continue;
+        visit.set(Number(cols[0]), Number(cols[4]));
+      }
+      for (const cols of spendRows) {
+        if (cols[1] !== spendKey) continue;
+        spend.set(Number(cols[0]), Number(cols[3]));
+      }
+    })
+  );
   return { visit, spend };
 }
 
@@ -109,29 +121,39 @@ async function loadAnnual(
   return { visit, spend };
 }
 
-const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 const YEARS = [2020, 2021, 2022, 2023, 2024, 2025];
+// YYYYMM 정수로 인코딩한 전체 월 목록(202001~202512, 72개) — 셀렉트박스 옵션과 x축 도메인에 쓴다.
+const YEAR_MONTHS = MONTHLY_YEARS.flatMap((y) => Array.from({ length: 12 }, (_, i) => y * 100 + i + 1));
 
 export default async function CountryMonthlySeasonalityPage() {
   const perCountry = await Promise.all(
     COUNTRIES.map(async (c) => {
       const [monthly, annual] = await Promise.all([
-        loadMonthly2025(c.monthlyFolder, c.visitKey, c.spendKey),
+        loadMonthlyAll(c.monthlyFolder, c.visitKey, c.spendKey),
         loadAnnual(c.annualFolder, c.visitKey, c.spendKey),
       ]);
       return { ...c, monthly, annual };
     })
   );
 
+  // 대만·태국 2023처럼 원본 데이터 자체가 비어 있는 달은 0으로 채우지 않고 아예 점을 만들지
+  // 않는다 — 0으로 채우면 "그 나라가 그 시기에 방문객이 0이었다"는 잘못된 신호가 된다.
+  // MultiLineChart는 각 시리즈가 x축(전체 72개월) 중 일부만 가져도 있는 점끼리만 이어 그린다.
   const monthlyVisitSeries: NamedSeries[] = perCountry.map((c) => ({
     label: c.label,
     color: c.color,
-    points: MONTHS.map((m) => ({ year: m, value: c.monthly.visit.get(m) ?? 0 })),
+    points: YEAR_MONTHS.filter((ym) => c.monthly.visit.has(ym)).map((ym) => ({
+      year: ym,
+      value: c.monthly.visit.get(ym)!,
+    })),
   }));
   const monthlySpendSeries: NamedSeries[] = perCountry.map((c) => ({
     label: c.label,
     color: c.color,
-    points: MONTHS.map((m) => ({ year: m, value: c.monthly.spend.get(m) ?? 0 })),
+    points: YEAR_MONTHS.filter((ym) => c.monthly.spend.has(ym)).map((ym) => ({
+      year: ym,
+      value: c.monthly.spend.get(ym)!,
+    })),
   }));
   const annualVisitSeries: NamedSeries[] = perCountry.map((c) => ({
     label: c.label,
@@ -150,11 +172,12 @@ export default async function CountryMonthlySeasonalityPage() {
         국가별 방한 성수기 — 마케팅 타이밍
       </h1>
       <p style={{ fontSize: 12, color: "#6B7280", marginBottom: 16, lineHeight: 1.6 }}>
-        data/7&lt;국가&gt;월간(2025년), data/7&lt;국가&gt;연간(2020~2025년) · 방문 추이.csv(서울
-        방문 외국인 중 해당 국가 비율), 관광소비 추이.csv(서울 관광소비 중 해당 국가 비율) ·
-        6개국(일본·중국·미국·대만·태국·홍콩)을 월간 기준(2025년 1~12월, 계절성)과 연간 기준
-        (2020~2025년, 연도별 추세) 두 기간 필터로 비교해 “어느 국가를 언제 겨냥할지” 판단하는 데
-        씁니다. 연간 기준의 관광소비 비율은 해당 연도 12개월 평균입니다.
+        data/7&lt;국가&gt;월간(2020~2025년 72개월), data/7&lt;국가&gt;연간(2020~2025년) · 방문
+        추이.csv(서울 방문 외국인 중 해당 국가 비율), 관광소비 추이.csv(서울 관광소비 중 해당
+        국가 비율) · 6개국(일본·중국·미국·대만·태국·홍콩)을 월간 기준(2020-01~2025-12 중 원하는
+        구간)과 연간 기준(2020~2025년 중 원하는 구간) 두 기간 필터로, 시작·종료를 셀렉트박스로
+        직접 골라 비교해 “어느 국가를 언제 겨냥할지” 판단하는 데 씁니다. 연간 기준의 관광소비
+        비율은 해당 연도 12개월 평균입니다.
       </p>
       <InsightBox
         items={[

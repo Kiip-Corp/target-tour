@@ -28,6 +28,8 @@ export default function MultiLineChart({
   groupLabel = "국가",
   valueLabel = "외국인 환자 수 (명)",
   formatPeriod = (n: number) => `${n}년`,
+  formatValue = fmtFull,
+  axisLabel = "기준연도",
 }: {
   series: NamedSeries[];
   years: number[];
@@ -35,6 +37,8 @@ export default function MultiLineChart({
   groupLabel?: string;
   valueLabel?: string;
   formatPeriod?: (n: number) => string;
+  formatValue?: (n: number) => string;
+  axisLabel?: string;
 }) {
   const [visible, setVisible] = useState<Set<string>>(new Set(defaultVisible));
   const [hoverYear, setHoverYear] = useState<number | null>(null);
@@ -210,7 +214,7 @@ export default function MultiLineChart({
               {valueLabel}
             </text>
             <text x={innerW / 2} y={innerH + 40} textAnchor="middle" fontSize={11} fill={MUTED}>
-              기준연도
+              {axisLabel}
             </text>
           </g>
         </svg>
@@ -242,7 +246,7 @@ export default function MultiLineChart({
               >
                 <span style={{ width: 10, height: 2, background: r.color, display: "block" }} />
                 <span style={{ color: MUTED, flex: 1 }}>{r.label}</span>
-                <span style={{ fontWeight: 700, color: INK }}>{fmtFull(r.value ?? 0)}</span>
+                <span style={{ fontWeight: 700, color: INK }}>{formatValue(r.value ?? 0)}</span>
               </div>
             ))}
           </div>
@@ -300,7 +304,7 @@ export default function MultiLineChart({
                   </td>
                   {years.map((yr) => (
                     <td key={yr} style={{ textAlign: "right", padding: "4px 10px", color: INK }}>
-                      {fmtFull(s.points.find((p) => p.year === yr)?.value ?? 0)}
+                      {formatValue(s.points.find((p) => p.year === yr)?.value ?? 0)}
                     </td>
                   ))}
                 </tr>
