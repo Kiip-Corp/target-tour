@@ -508,6 +508,26 @@ export function KoreaBubbleMap({
               pointerEvents="none"
             />
           )}
+          <g>
+            {regions.map((r) => (
+              <text
+                key={`label-${r.code}`}
+                x={r.cx}
+                y={r.cy}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                fontSize={11 / Math.max(zoom, 1)}
+                fontWeight={700}
+                fill={INK}
+                stroke="#fff"
+                strokeWidth={3 / Math.max(zoom, 1)}
+                paintOrder="stroke"
+                pointerEvents="none"
+              >
+                {r.name}
+              </text>
+            ))}
+          </g>
           {showBubbles && (
             <g>
               {regions.map((r) => {
