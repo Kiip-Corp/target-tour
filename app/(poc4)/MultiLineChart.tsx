@@ -68,6 +68,9 @@ export default function MultiLineChart({
   const yTicks = y.ticks(5);
   const visibleSeries = series.filter((s) => visible.has(s.label));
 
+  const labelStep = Math.max(1, Math.ceil(years.length / 14));
+  const showDots = years.length <= 24;
+
   const toggle = (label: string) =>
     setVisible((prev) => {
       const next = new Set(prev);
@@ -80,13 +83,13 @@ export default function MultiLineChart({
     hoverYear === null
       ? null
       : visibleSeries
-          .map((s) => ({
-            label: s.label,
-            color: s.color,
-            value: s.points.find((p) => p.year === hoverYear)?.value,
-          }))
-          .filter((r) => r.value !== undefined)
-          .sort((a, b) => (b.value ?? 0) - (a.value ?? 0));
+        .map((s) => ({
+          label: s.label,
+          color: s.color,
+          value: s.points.find((p) => p.year === hoverYear)?.value,
+        }))
+        .filter((r) => r.value !== undefined)
+        .sort((a, b) => (b.value ?? 0) - (a.value ?? 0));
 
   return (
     <div>
@@ -143,18 +146,20 @@ export default function MultiLineChart({
               </g>
             ))}
 
-            {years.map((yr) => (
-              <text
-                key={yr}
-                x={x(yr) ?? 0}
-                y={innerH + 20}
-                textAnchor="middle"
-                fontSize={10.5}
-                fill={MUTED}
-              >
-                {formatPeriod(yr)}
-              </text>
-            ))}
+            {years.map((yr, i) =>
+              i % labelStep === 0 || i === years.length - 1 ? (
+                <text
+                  key={yr}
+                  x={x(yr) ?? 0}
+                  y={innerH + 20}
+                  textAnchor="middle"
+                  fontSize={10.5}
+                  fill={MUTED}
+                >
+                  {formatPeriod(yr)}
+                </text>
+              ) : null
+            )}
 
             {years.map((yr) => (
               <rect
@@ -191,19 +196,20 @@ export default function MultiLineChart({
               />
             ))}
 
-            {visibleSeries.map((s) =>
-              s.points.map((p) => (
-                <circle
-                  key={`${s.label}-${p.year}`}
-                  cx={x(p.year) ?? 0}
-                  cy={y(p.value)}
-                  r={4}
-                  fill={s.color}
-                  stroke={SURFACE}
-                  strokeWidth={2}
-                />
-              ))
-            )}
+            {showDots &&
+              visibleSeries.map((s) =>
+                s.points.map((p) => (
+                  <circle
+                    key={`${s.label}-${p.year}`}
+                    cx={x(p.year) ?? 0}
+                    cy={y(p.value)}
+                    r={4}
+                    fill={s.color}
+                    stroke={SURFACE}
+                    strokeWidth={2}
+                  />
+                ))
+              )}
 
             <text
               transform={`translate(-42,${innerH / 2}) rotate(-90)`}

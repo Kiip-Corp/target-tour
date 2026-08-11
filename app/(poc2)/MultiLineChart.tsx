@@ -68,6 +68,12 @@ export default function MultiLineChart({
   const yTicks = y.ticks(5);
   const visibleSeries = series.filter((s) => visible.has(s.label));
 
+  // 월간처럼 구간이 길면(최대 102개월) x축 라벨이 전부 겹쳐 읽을 수 없다 — 일정 간격으로만
+  // 라벨을 찍고(마지막은 항상 표시), 점이 너무 많으면 마커도 생략해 선만 남긴다.
+  // 호버 히트영역과 툴팁은 모든 지점에 그대로 유지되므로 값 확인에는 영향이 없다.
+  const labelStep = Math.max(1, Math.ceil(years.length / 14));
+  const showDots = years.length <= 24;
+
   const toggle = (label: string) =>
     setVisible((prev) => {
       const next = new Set(prev);
@@ -143,18 +149,20 @@ export default function MultiLineChart({
               </g>
             ))}
 
-            {years.map((yr) => (
-              <text
-                key={yr}
-                x={x(yr) ?? 0}
-                y={innerH + 20}
-                textAnchor="middle"
-                fontSize={10.5}
-                fill={MUTED}
-              >
-                {formatPeriod(yr)}
-              </text>
-            ))}
+            {years.map((yr, i) =>
+              i % labelStep === 0 || i === years.length - 1 ? (
+                <text
+                  key={yr}
+                  x={x(yr) ?? 0}
+                  y={innerH + 20}
+                  textAnchor="middle"
+                  fontSize={10.5}
+                  fill={MUTED}
+                >
+                  {formatPeriod(yr)}
+                </text>
+              ) : null
+            )}
 
             {years.map((yr) => (
               <rect
@@ -191,19 +199,20 @@ export default function MultiLineChart({
               />
             ))}
 
-            {visibleSeries.map((s) =>
-              s.points.map((p) => (
-                <circle
-                  key={`${s.label}-${p.year}`}
-                  cx={x(p.year) ?? 0}
-                  cy={y(p.value)}
-                  r={4}
-                  fill={s.color}
-                  stroke={SURFACE}
-                  strokeWidth={2}
-                />
-              ))
-            )}
+            {showDots &&
+              visibleSeries.map((s) =>
+                s.points.map((p) => (
+                  <circle
+                    key={`${s.label}-${p.year}`}
+                    cx={x(p.year) ?? 0}
+                    cy={y(p.value)}
+                    r={4}
+                    fill={s.color}
+                    stroke={SURFACE}
+                    strokeWidth={2}
+                  />
+                ))
+              )}
 
             <text
               transform={`translate(-42,${innerH / 2}) rotate(-90)`}

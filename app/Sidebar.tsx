@@ -6,14 +6,24 @@ import { useState } from "react";
 
 const NAV_SECTIONS = [
   {
-    title: "PoC",
+    title: "PoC0",
     items: [
       { href: "/demo", label: "demo", desc: "국적별 수요 기반 마케팅" },
       { href: "/visitor", label: "visitor", desc: "외국인 밀집 지역 스캐너" },
     ],
   },
   {
-    title: "PoC2",
+    title: "PoC1",
+    items: [
+      {
+        href: "/medicalConsumptionByCountry",
+        label: "medicalConsumptionByCountry",
+        desc: "4-국가별 의료 소비액 추이",
+      },
+    ],
+  },
+  {
+    title: "PoC2-의료관광 데이터",
     items: [
       {
         href: "/medicalTourismInterest",
@@ -38,7 +48,7 @@ const NAV_SECTIONS = [
       {
         href: "/medicalConsumptionByCountry",
         label: "medicalConsumptionByCountry",
-        desc: "국가별 의료 소비액 추이",
+        desc: "4-국가별 의료 소비액 추이",
       },
       {
         href: "/medicalSpecialtyMix",
@@ -93,7 +103,7 @@ const NAV_SECTIONS = [
     ],
   },
   {
-    title: "PoC4",
+    title: "PoC4-전체 관광",
     items: [
       {
         href: "/foreignVisitorRegionMapBubble",
