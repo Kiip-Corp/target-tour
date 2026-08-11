@@ -66,16 +66,6 @@ const NAV_SECTIONS = [
         desc: "지역별 소비 지도 (5-1)",
       },
       {
-        href: "/tourismConsumptionMap",
-        label: "tourismConsumptionMap",
-        desc: "전국→서울→강남구 드릴다운 지도 (6)",
-      },
-      {
-        href: "/foreignVisitorRegionMap",
-        label: "foreignVisitorRegionMap",
-        desc: "국가별 방한객 지역 분포 지도 (7)",
-      },
-      {
         href: "/medicalSpecialtyByRegion",
         label: "medicalSpecialtyByRegion",
         desc: "지역별 진료과목 비율 (5-2)",
@@ -93,8 +83,18 @@ const NAV_SECTIONS = [
     ],
   },
   {
-    title: "PoC3",
+    title: "PoC3-전체 관광",
     items: [
+      {
+        href: "/tourismConsumptionMap",
+        label: "tourismConsumptionMap",
+        desc: "전국→서울→강남구 드릴다운 지도 (6)",
+      },
+      {
+        href: "/foreignVisitorRegionMap",
+        label: "foreignVisitorRegionMap",
+        desc: "국가별 방한객 지역 분포 지도 (7)",
+      },
       {
         href: "/foreignVisitorRegionMapV2",
         label: "foreignVisitorRegionMapV2",
