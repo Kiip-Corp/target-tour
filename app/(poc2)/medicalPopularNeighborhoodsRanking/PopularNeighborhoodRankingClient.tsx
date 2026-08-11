@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import NeighborhoodRankingTable from "../NeighborhoodRankingTable";
+import NeighborhoodRankingTable from "../../_components/NeighborhoodRankingTable";
 import { RegionButtons } from "../RegionSpecialtyBar";
 import PeriodToggle, { formatAnnual, formatMonthly, type Period } from "../PeriodToggle";
-import type { RegionSeries } from "../popularNeighborhoodsData";
+import type { RegionSeries } from "../../_data/popularNeighborhoods";
 
 export default function PopularNeighborhoodRankingClient({
   annual,

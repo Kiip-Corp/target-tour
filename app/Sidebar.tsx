@@ -18,6 +18,11 @@ const NAV_SECTIONS = [
         label: "specialtyTreemap",
         desc: "진료과목별 의료소비 비율 트리맵 (3·5 통합 — 추이·종합·지역별)",
       },
+      {
+        href: "/popularNeighborhoods",
+        label: "popularNeighborhoods",
+        desc: "인기 소비동네 — 추이 차트 + 순위표 한 화면 (5-3 통합)",
+      },
     ],
   },
   {

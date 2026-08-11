@@ -4,7 +4,7 @@ import { useState } from "react";
 import MultiLineChart from "../../_components/MultiLineChart";
 import { RegionButtons } from "../RegionSpecialtyBar";
 import PeriodToggle, { formatAnnual, formatMonthly, type Period } from "../PeriodToggle";
-import type { RegionSeries } from "../popularNeighborhoodsData";
+import type { RegionSeries } from "../../_data/popularNeighborhoods";
 
 export default function PopularNeighborhoodClient({
   annual,

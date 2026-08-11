@@ -1,5 +1,5 @@
 import PopularNeighborhoodClient from "./PopularNeighborhoodClient";
-import { ANNUAL_ROOT, MONTHLY_ROOT, loadPopularNeighborhoodRegions } from "../popularNeighborhoodsData";
+import { ANNUAL_ROOT, MONTHLY_ROOT, loadPopularNeighborhoodRegions } from "../../_data/popularNeighborhoods";
 import InsightBox from "../InsightBox";
 
 export default async function MedicalPopularNeighborhoodsPage() {
