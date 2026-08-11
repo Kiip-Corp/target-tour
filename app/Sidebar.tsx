@@ -13,6 +13,11 @@ const NAV_SECTIONS = [
         label: "marketingBoard",
         desc: "언제·어디에·누구를 — 타깃 마케팅 의사결정 보드 (4·5·7 통합)",
       },
+      {
+        href: "/specialtyTreemap",
+        label: "specialtyTreemap",
+        desc: "진료과목별 의료소비 비율 트리맵 (3·5 통합 — 추이·종합·지역별)",
+      },
     ],
   },
   {
