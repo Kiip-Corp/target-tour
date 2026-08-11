@@ -1,7 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import KoreaConsumptionMap, { type RegionData } from "./KoreaConsumptionMap";
-import { REGIONS } from "./koreaGeo";
+import { SIDO_CODES } from "../../_koreaBubbleMap/sidoCodes";
 import InsightBox from "../InsightBox";
 
 const ROOT = path.join(process.cwd(), "data", "5_연간2018-2026");
@@ -50,7 +50,7 @@ export default async function MedicalConsumptionMapPage() {
   );
 
   const regions: RegionData[] = await Promise.all(
-    REGIONS.map(async ({ full, short, lat, lng }) => {
+    SIDO_CODES.map(async ({ full, short, code }) => {
       const dir = await findDir(full);
       const [count, amount] = await Promise.all([
         loadTrend(dir, "외국인 의료 소비건수 추이.csv"),
@@ -59,7 +59,7 @@ export default async function MedicalConsumptionMapPage() {
       const byYear = Object.fromEntries(
         years.map((y) => [y, { count: count[y] ?? 0, amount: amount[y] ?? 0 }])
       );
-      return { short, full, lat, lng, byYear };
+      return { short, full, code, byYear };
     })
   );
 
@@ -70,8 +70,9 @@ export default async function MedicalConsumptionMapPage() {
       </h1>
       <p style={{ fontSize: 12, color: "#6B7280", marginBottom: 16, lineHeight: 1.6, fontFamily: "ui-monospace, monospace" }}>
         data/5_연간2018-2026/&lt;시도&gt;/…추이.csv · 연도·지표(소비건수/소비액)를 바꿔가며 17개 시도의
-        규모를 원 크기·색으로 한반도 지도 위에 표시합니다. /visitor 페이지와 같은 좌표 데이터를
-        재사용했습니다.
+        규모를 지역 색상으로 표시합니다. tourismConsumptionMapDrilldown과 같은 실측 경계 지도
+        (app/_koreaBubbleMap)를 씁니다 — 휠로 확대·드래그로 이동할 수 있고, 이 데이터셋은 시도
+        단위까지만 있어 서울 구단위 드릴다운은 꺼져 있습니다.
       </p>
       <InsightBox
         items={[

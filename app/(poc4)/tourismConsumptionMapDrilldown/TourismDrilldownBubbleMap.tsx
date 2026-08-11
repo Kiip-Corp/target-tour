@@ -2,7 +2,7 @@
 
 import * as d3 from "d3";
 import { useMemo, useState } from "react";
-import { KoreaBubbleMap, type KoreaMapData, type MapData, type TooltipProps } from "../koreaBubbleMap/KoreaBubbleMap";
+import { KoreaBubbleMap, type KoreaMapData, type MapData, type TooltipProps } from "../../_koreaBubbleMap/KoreaBubbleMap";
 
 const INK = "#171A21";
 const MUTED = "#6B7280";

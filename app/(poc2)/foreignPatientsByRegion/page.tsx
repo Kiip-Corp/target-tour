@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import MultiLineChart, { type NamedSeries } from "../MultiLineChart";
+import MultiLineChart, { type NamedSeries } from "../../_components/MultiLineChart";
 import InsightBox from "../InsightBox";
 
 // dataviz 스킬 검증 팔레트(라이트) — 2-1(국가) 차트와 동일한 10슬롯 재사용, 고정 순서

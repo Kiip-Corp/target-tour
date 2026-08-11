@@ -1,7 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import CountryRegionMap, { type CountryData } from "./CountryRegionMap";
-import { SIDO_CODES } from "../koreaBubbleMap/sidoCodes";
+import { SIDO_CODES } from "../../_koreaBubbleMap/sidoCodes";
 import InsightBox from "../InsightBox";
 
 const DATA_ROOT = path.join(process.cwd(), "data");
@@ -78,7 +78,7 @@ export default async function ForeignVisitorRegionMapBubblePage() {
         data/7&lt;국가&gt;연간 · 전국 방문현황 히트맵.csv, 전국 관광소비 현황.csv · 국가(중국·대만·
         일본·미국·태국·홍콩)와 지표(방문자 비율/관광소비 비율)를 바꿔가며 17개 시도의 분포를 지도
         위 지역 색상으로 표시합니다. (@tenqube/react-korea-bubble-map을 이 프로젝트의 React 19에
-        맞게 직접 포팅한 ../koreaBubbleMap/KoreaBubbleMap — 원본은 D3로 DOM을 직접 그리는
+        맞게 직접 포팅한 app/_koreaBubbleMap/KoreaBubbleMap — 원본은 D3로 DOM을 직접 그리는
         useEffect에 cleanup이 없어 Next.js 기본 Strict Mode의 개발 모드 이중 마운트에서 중복
         렌더링이 발생했습니다. 원본이 내장한 시도 단위 지리 데이터만 재사용하고 렌더링은 React가
         선언적으로 그리도록 새로 구현해, 지역 채우기 색을 지정하는 것도 정식 prop으로 지원합니다.

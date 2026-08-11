@@ -6,6 +6,16 @@ import { useState } from "react";
 
 const NAV_SECTIONS = [
   {
+    title: "★ DEMO — 통합 보드",
+    items: [
+      {
+        href: "/marketingBoard",
+        label: "marketingBoard",
+        desc: "언제·어디에·누구를 — 타깃 마케팅 의사결정 보드 (4·5·7 통합)",
+      },
+    ],
+  },
+  {
     title: "PoC0",
     items: [
       { href: "/demo", label: "demo", desc: "국적별 수요 기반 마케팅" },

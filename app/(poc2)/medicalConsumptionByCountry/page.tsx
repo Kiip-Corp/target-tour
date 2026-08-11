@@ -1,6 +1,6 @@
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
-import { type NamedSeries } from "../MultiLineChart";
+import { type NamedSeries } from "../../_components/MultiLineChart";
 import MedicalConsumptionByCountryChart from "./MedicalConsumptionByCountryChart";
 import InsightBox from "../InsightBox";
 

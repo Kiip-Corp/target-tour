@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import MultiLineChart, { type NamedSeries } from "../MultiLineChart";
+import MultiLineChart, { type NamedSeries } from "../../_components/MultiLineChart";
 import InsightBox from "../InsightBox";
 
 // dataviz 스킬 검증 팔레트(라이트) — 고정 순서, 국가별 색상 불변

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import MultiLineChart from "../MultiLineChart";
+import MultiLineChart from "../../_components/MultiLineChart";
 import { RegionButtons } from "../RegionSpecialtyBar";
 import PeriodToggle, { formatAnnual, formatMonthly, type Period } from "../PeriodToggle";
 import type { RegionSeries } from "../popularNeighborhoodsData";

@@ -2,9 +2,9 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import * as d3 from "d3";
 import TourismDrilldownBubbleMap from "./TourismDrilldownBubbleMap";
-import { SIDO_CODES } from "../koreaBubbleMap/sidoCodes";
-import { SEOUL_GU_CODES } from "../koreaBubbleMap/seoulGuCodes";
-import { GANGNAM_DONG } from "../koreaBubbleMap/gangnamDong";
+import { SIDO_CODES } from "../../_koreaBubbleMap/sidoCodes";
+import { SEOUL_GU_CODES } from "../../_koreaBubbleMap/seoulGuCodes";
+import { GANGNAM_DONG } from "../../_koreaBubbleMap/gangnamDong";
 import InsightBox from "../InsightBox";
 
 // poc4 1번째 페이지처럼 지역 색상(면적)으로 빈도를 표시한다. 강남구 레벨은 실측 행정동 폴리곤이

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import MultiLineChart, { type NamedSeries } from "../MultiLineChart";
+import MultiLineChart, { type NamedSeries } from "../../_components/MultiLineChart";
 
 const INK = "#171A21";
 const MUTED = "#6B7280";

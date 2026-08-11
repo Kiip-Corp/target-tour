@@ -1,6 +1,6 @@
 "use client";
 
-import type { NamedSeries } from "./MultiLineChart";
+import type { NamedSeries } from "../_components/MultiLineChart";
 
 const INK = "#171A21";
 const MUTED = "#6B7280";

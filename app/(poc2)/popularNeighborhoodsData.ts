@@ -1,6 +1,6 @@
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
-import type { NamedSeries } from "./MultiLineChart";
+import type { NamedSeries } from "../_components/MultiLineChart";
 
 export const ANNUAL_ROOT = path.join(process.cwd(), "data", "5_연간2018-2026");
 export const MONTHLY_ROOT = path.join(process.cwd(), "data", "5_월간2025");

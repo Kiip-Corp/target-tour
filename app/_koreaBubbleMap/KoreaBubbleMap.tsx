@@ -71,6 +71,10 @@ export interface BubbleMapConfigProps {
   showBubbles?: boolean;
   /** 원본에는 없는 확장: 지역 클릭 콜백. */
   onSelect?(code: string): void;
+  /** 원본에는 없는 확장: 전국→서울 드릴다운을 켤지 여부. 기본 true.
+   *  시도 단위 데이터만 있는 페이지(예: 5-1 의료 소비)는 false로 꺼서 빈 서울 지도로
+   *  들어가지 않게 한다. */
+  enableSeoulDrilldown?: boolean;
   /** 원본에는 없는 확장: 서울→강남구 3단계 드릴다운을 켤지 여부. 기본 false. */
   enableGangnamDrilldown?: boolean;
   /** 원본에는 없는 확장: 현재 표시 중인 레벨(0=전국,1=서울,2=강남구)이 바뀔 때마다 호출된다. */
@@ -160,6 +164,7 @@ export function KoreaBubbleMap({
   customTooltip,
   showBubbles = true,
   onSelect,
+  enableSeoulDrilldown = true,
   enableGangnamDrilldown = false,
   onLevelChange,
 }: BubbleMapConfigProps) {
@@ -329,7 +334,7 @@ export function KoreaBubbleMap({
       const sy = v.y + fy * v.h;
       const newW = v.w / factor;
 
-      if (level === 0 && zoomingIn && newW < width / 2.4) {
+      if (level === 0 && zoomingIn && enableSeoulDrilldown && newW < width / 2.4) {
         const lonlat = sidoProjection.invert?.([sx, sy]);
         if (lonlat && d3.geoContains(SEOUL_SIDO_FEATURE, lonlat)) {
           setPendingFocus({ lonlat, viewW: newW, fromLevel: 0 });
@@ -364,7 +369,7 @@ export function KoreaBubbleMap({
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
-  }, [level, width, height, sidoProjection, seoulGuProjection, gangnamDongProjection, enableGangnamDrilldown, clampView]);
+  }, [level, width, height, sidoProjection, seoulGuProjection, gangnamDongProjection, enableSeoulDrilldown, enableGangnamDrilldown, clampView]);
 
   const hovered = hoveredCode ? regions.find((r) => r.code === hoveredCode) : null;
 
@@ -392,7 +397,7 @@ export function KoreaBubbleMap({
 
   const handleClick = (code: string, e: React.MouseEvent) => {
     if (justDraggedRef.current) return; // 드래그 끝의 합성 클릭은 무시
-    if (level === 0 && code === SEOUL_CODE) {
+    if (level === 0 && code === SEOUL_CODE && enableSeoulDrilldown) {
       enterChildLevel(1, e, sidoProjection);
       return;
     }
@@ -503,7 +508,7 @@ export function KoreaBubbleMap({
                 style={{
                   cursor:
                     onSelect ||
-                    (level === 0 && r.code === SEOUL_CODE) ||
+                    (level === 0 && r.code === SEOUL_CODE && enableSeoulDrilldown) ||
                     (level === 1 && r.code === GANGNAM_CODE && enableGangnamDrilldown)
                       ? "pointer"
                       : "default",

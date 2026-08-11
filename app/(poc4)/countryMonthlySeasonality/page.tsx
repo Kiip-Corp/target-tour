@@ -2,7 +2,7 @@ import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import SeasonalityChart from "./SeasonalityChart";
 import InsightBox from "../InsightBox";
-import type { NamedSeries } from "../MultiLineChart";
+import type { NamedSeries } from "../../_components/MultiLineChart";
 
 const DATA_ROOT = path.join(process.cwd(), "data");
 
