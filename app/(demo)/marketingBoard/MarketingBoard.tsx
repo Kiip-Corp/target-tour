@@ -31,7 +31,11 @@ const fmtPct = d3.format(".1f");
 const fmtWon = d3.format(",");
 const fmtPeople = d3.format(",");
 
-/** 관광소비 원자료 단위는 천원 — 억/조로 접어야 지도 툴팁과 랭크에 들어간다. */
+/**
+ * 관광소비·의료소비 원자료는 둘 다 천원 단위 — 억/조로 접어야 지도 툴팁과 랭크에 들어간다.
+ * 의료 쪽 CSV에는 단위 표기가 없지만, 소비액 ÷ 소비건수가 건당 40만원대라 천원이 맞다
+ * (원으로 읽으면 건당 400원대가 되어 말이 안 된다).
+ */
 function fmtSpend(thousandWon: number) {
   const won = thousandWon * 1000;
   if (won >= 1e12) return `${(won / 1e12).toFixed(1)}조원`;
@@ -364,7 +368,7 @@ export default function MarketingBoard({
     [regionRows, regionMetric]
   );
 
-  // 세 지표는 단위가 전혀 다르다(명 vs 천원 vs 원) — dual-axis는 금지이므로 각 지표를 자기 최대월=100으로
+  // 네 지표는 단위가 다르다(방문 = 명, 나머지 셋 = 천원) — dual-axis는 금지이므로 각 지표를 자기 최대월=100으로
   // 지수화해 "언제 몰리는지"만 한 축에서 비교한다. 실제 값은 아래 요약 카드와 툴팁에서 확인.
   const indexedSeries: NamedSeries[] = useMemo(() => {
     const build = (label: string, color: string, series: Record<number, number>) => {
@@ -541,7 +545,7 @@ export default function MarketingBoard({
           headline={peakMedical ? `${peakMedical.month}월` : "데이터 없음"}
           sub={
             peakMedical && peakMedicalCell
-              ? `${fmtWon(Math.round(peakMedical.value))}원 · ${fmtPeople(
+              ? `${fmtSpend(peakMedical.value)} · ${fmtPeople(
                   Math.round(peakMedicalCell.count)
                 )}건 · 전체 외국인 의료소비의 ${fmtPct(peakMedicalCell.amountShare)}%`
               : `${tourYear}년 자료 없음`
@@ -565,7 +569,7 @@ export default function MarketingBoard({
         step="1"
         title="언제 — 월별 성수기"
         question={`${country} 관광객은 ${tourYear}년 ${regionName}에 몇 월에 가장 많이 오고, 쓰고, 치료받았나?`}
-        note={`방문·관광소비·의료소비(지역)는 ${regionName} 기준이고, 의료소비(국가)는 ${country} 기준이되 지역 구분이 없어 전국 합계입니다 — 4번은 국가축, 5번은 지역축이라 둘이 겹치지 않습니다. 단위가 달라(명 / 천원 / 원) 각 지표의 최대월을 100으로 지수화했습니다 — 값의 크기가 아니라 '몰리는 시점'을 비교하는 차트입니다.`}
+        note={`방문·관광소비·의료소비(지역)는 ${regionName} 기준이고, 의료소비(국가)는 ${country} 기준이되 지역 구분이 없어 전국 합계입니다 — 4번은 국가축, 5번은 지역축이라 둘이 겹치지 않습니다. 단위가 달라(방문 = 명, 소비 3종 = 천원) 각 지표의 최대월을 100으로 지수화했습니다 — 값의 크기가 아니라 '몰리는 시점'을 비교하는 차트입니다.`}
       >
         <MultiLineChart
           key={`${country}-${tourYear}-${regionCode}`}
