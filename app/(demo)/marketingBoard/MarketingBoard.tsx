@@ -433,6 +433,37 @@ export default function MarketingBoard({
     };
   }, [byRegion, cell, months, regionMetric, tourYear]);
 
+  /**
+   * 히트맵 셀 툴팁. 브라우저 기본 title은 1~2초 지연되는 데다 셀 높이가 20px라
+   * 마우스를 조금만 움직여도 다시 안 떠서, 지도와 같은 즉시 툴팁을 직접 그린다.
+   */
+  const [heatTip, setHeatTip] = useState<{
+    key: string;
+    x: number;
+    y: number;
+    label: string;
+    value: number | null;
+    sharePct: number;
+  } | null>(null);
+
+  const moveHeatTip = (
+    e: React.MouseEvent,
+    key: string,
+    label: string,
+    value: number | null,
+    sharePct: number
+  ) => {
+    // 화면 밖으로 나가지 않게 커서 기준으로 붙이되 오른쪽·아래 끝에서 접어 넣는다.
+    setHeatTip({
+      key,
+      x: Math.min(e.clientX + 14, window.innerWidth - 210),
+      y: Math.min(e.clientY + 14, window.innerHeight - 110),
+      label,
+      value,
+      sharePct,
+    });
+  };
+
   const metricWord = regionMetric === "visit" ? "방문" : "관광소비";
 
   return (
@@ -644,7 +675,7 @@ export default function MarketingBoard({
         step="3"
         title="언제 × 어디에 — 지역별 월 패턴"
         question={`${country} 관광객의 성수기는 지역마다 다른가? (${tourYear}년)`}
-        note="'지역 내 월 비중'은 각 지역의 최대월을 가장 진하게 칠해 규모가 작은 지역의 성수기도 보이게 합니다. '절대량'은 전국 최대 셀 기준이라 물량이 어디에 몰려 있는지를 봅니다. 셀에 마우스를 올리면 실제 추정치가 나옵니다."
+        note="'지역 내 월 비중'은 각 지역의 최대월을 가장 진하게 칠해 규모가 작은 지역의 성수기도 보이게 합니다. '절대량'은 전국 최대 셀 기준이라 물량이 어디에 몰려 있는지를 봅니다. 셀에 마우스를 올리면 그 지역·월의 추정 값과 연간 대비 비중이 바로 뜹니다."
         right={
           <Toggle
             value={heatMode}
@@ -687,29 +718,38 @@ export default function MarketingBoard({
                   {months.map((m) => {
                     const v = r.values[m];
                     if (v === null) {
+                      const key = `${r.code}-${m}`;
                       return (
                         <td
                           key={m}
-                          title={`${r.short} ${m}월 · 자료 없음`}
+                          onMouseEnter={(e) => moveHeatTip(e, key, `${r.short} · ${m}월`, null, 0)}
+                          onMouseMove={(e) => moveHeatTip(e, key, `${r.short} · ${m}월`, null, 0)}
+                          onMouseLeave={() => setHeatTip(null)}
                           style={{
                             background: "repeating-linear-gradient(45deg,#F1F1EE,#F1F1EE 3px,#fff 3px,#fff 6px)",
                             height: 20,
                             border: "1px solid #fff",
+                            outline: heatTip?.key === key ? `2px solid ${INK}` : undefined,
+                            outlineOffset: -2,
                           }}
                         />
                       );
                     }
                     const t = heatMode === "share" ? (r.max > 0 ? v / r.max : 0) : v / heat.volumeMax;
+                    const key = `${r.code}-${m}`;
+                    const sharePct = r.total > 0 ? (v / r.total) * 100 : 0;
                     return (
                       <td
                         key={m}
-                        title={`${r.short} ${m}월 · 추정 ${formatRegion(v)} · 연간 대비 ${fmtPct(
-                          r.total > 0 ? (v / r.total) * 100 : 0
-                        )}%`}
+                        onMouseEnter={(e) => moveHeatTip(e, key, `${r.short} · ${m}월`, v, sharePct)}
+                        onMouseMove={(e) => moveHeatTip(e, key, `${r.short} · ${m}월`, v, sharePct)}
+                        onMouseLeave={() => setHeatTip(null)}
                         style={{
                           background: seqColor(Math.min(1, t)),
                           height: 20,
                           border: "1px solid #fff",
+                          outline: heatTip?.key === key ? `2px solid ${INK}` : undefined,
+                          outlineOffset: -2,
                         }}
                       />
                     );
@@ -746,6 +786,40 @@ export default function MarketingBoard({
           />
           <span>자료 없음</span>
         </div>
+
+        {heatTip && (
+          <div
+            style={{
+              position: "fixed",
+              left: heatTip.x,
+              top: heatTip.y,
+              zIndex: 30,
+              pointerEvents: "none",
+              background: "#fff",
+              border: `1px solid ${BORDER}`,
+              borderRadius: 6,
+              boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
+              padding: "10px 12px",
+              fontSize: 12,
+              lineHeight: 1.6,
+              whiteSpace: "nowrap",
+            }}
+          >
+            <strong style={{ display: "block", marginBottom: 4, color: INK }}>{heatTip.label}</strong>
+            {heatTip.value === null ? (
+              <span style={{ color: MUTED }}>자료 없음</span>
+            ) : (
+              <>
+                <div style={{ color: MUTED }}>
+                  추정 {metricWord} <b style={{ color: INK }}>{formatRegion(heatTip.value)}</b>
+                </div>
+                <div style={{ color: MUTED }}>
+                  연간 대비 <b style={{ color: INK }}>{fmtPct(heatTip.sharePct)}%</b>
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </Panel>
     </div>
   );
