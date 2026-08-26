@@ -1,3 +1,13 @@
+/**
+ * 보드가 읽는 원자료 3종. 폴더 이름 앞의 숫자는 data/readme.md의 데이터랩 메뉴 순번이다 —
+ * 화면 문구에서는 번호 대신 아래 이름으로 부른다(DataSources.tsx가 그 이름의 출처).
+ *
+ *   data/7국가지역월간 = 「방문 · 관광소비」    지역별 분석 › 지역별 방문자수/관광소비
+ *   data/4국가월간     = 「국가별 의료소비」    고부가 관광 › 의료관광 › 국가별 의료소비 추이
+ *   data/5지역월간     = 「지역별 의료소비」    고부가 관광 › 의료관광 › 지역별 의료소비 추이
+ *
+ * 소비액은 관광·의료 모두 천원 단위다(의료 쪽은 CSV에 표기가 없지만 건당 40만원대라 천원).
+ */
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { SIDO_CODES } from "../../_koreaBubbleMap/sidoCodes";

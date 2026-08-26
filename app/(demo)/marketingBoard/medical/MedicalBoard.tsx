@@ -26,8 +26,13 @@ const REGIONS = SIDO_CODES;
 const fmtPct = d3.format(".1f");
 const fmtNum = d3.format(",");
 
-/** 의료 소비액 원자료 단위는 원 — 억/조로 접어야 카드와 툴팁에 들어간다. */
-function fmtWon(won: number) {
+/**
+ * 의료 소비액 원자료 단위는 천원 — 억/조로 접어야 카드와 툴팁에 들어간다.
+ * CSV 헤더에 단위 표기가 없지만, 소비액 ÷ 소비건수가 건당 40만원대라 천원이 맞다
+ * (원으로 읽으면 건당 400원대가 되어 말이 안 된다).
+ */
+function fmtWon(thousandWon: number) {
+  const won = thousandWon * 1000;
   if (won >= 1e12) return `${(won / 1e12).toFixed(1)}조원`;
   if (won >= 1e8) return `${fmtNum(Math.round(won / 1e8))}억원`;
   if (won >= 1e4) return `${fmtNum(Math.round(won / 1e4))}만원`;
@@ -231,7 +236,7 @@ export default function MedicalBoard({ data }: { data: MedicalBoardData }) {
   const unitLabel = METRIC_LABEL[metric];
   const fmtValue = (n: number) => (metric === "amount" ? fmtWon(n) : `${fmtNum(Math.round(n))}건`);
 
-  /** 4번 국가별 — 선택 기간 합계. shares는 전체 외국인 대비 점유율이라 월별로 가중해 합친다. */
+  /** 「국가별 의료소비」(자료 4번) — 선택 기간 합계. shares는 전체 외국인 대비 점유율이라 월별로 가중해 합친다. */
   const countryTotals = useMemo(
     () =>
       data.countries.map((c) => {
@@ -259,7 +264,7 @@ export default function MedicalBoard({ data }: { data: MedicalBoardData }) {
     [data.countries, pickedMonths, year]
   );
 
-  /** 5번 "전국" — 시도가 특정되지 않은 소비까지 포함한 진짜 전체값. */
+  /** 「지역별 의료소비」(자료 5번)의 "전국" — 시도가 특정되지 않은 소비까지 포함한 진짜 전체값. */
   const nationwide = useMemo(
     () =>
       pickedMonths.reduce(
@@ -422,7 +427,7 @@ export default function MedicalBoard({ data }: { data: MedicalBoardData }) {
           title={`전체 외국인 ${unitLabel} · ${period}`}
           color={SEQ_HIGH}
           headline={nationwide[metric] > 0 ? fmtValue(nationwide[metric]) : "데이터 없음"}
-          sub="5번 전국 — 시도가 특정되지 않은 소비까지 포함"
+          sub="「지역별 의료소비」의 전국 값 — 시도가 특정되지 않은 소비까지 포함"
         />
         <SummaryCard
           title="최다 국가"
@@ -460,7 +465,7 @@ export default function MedicalBoard({ data }: { data: MedicalBoardData }) {
         step="1"
         title="누가 — 국가별 월별 의료소비"
         question={`${year}년, 어느 나라 외국인이 몇 월에 가장 많이 치료받았나?`}
-        note={`4번 자료입니다. 6개국을 같은 축에 놓았습니다 — 단위가 같아 지수화가 필요 없습니다. 다만 4번은 지역 구분이 없는 전국 합계라, 아래 패널 2의 지역 분포와는 교차되지 않습니다.`}
+        note={`「국가별 의료소비」 자료입니다. 6개국을 같은 축에 놓았습니다 — 단위가 같아 지수화가 필요 없습니다. 다만 이 자료는 지역 구분이 없는 전국 합계라, 아래 패널 2의 지역 분포와는 교차되지 않습니다.`}
       >
         <MultiLineChart
           key={`countries-${year}-${metric}`}
@@ -468,7 +473,7 @@ export default function MedicalBoard({ data }: { data: MedicalBoardData }) {
           years={months}
           defaultVisible={data.countries.map((c) => c.label)}
           groupLabel="국가"
-          valueLabel={metric === "amount" ? `${unitLabel} (원)` : `${unitLabel} (건)`}
+          valueLabel={metric === "amount" ? `${unitLabel} (천원)` : `${unitLabel} (건)`}
           formatPeriod={(n) => `${n}월`}
           formatValue={(n) => fmtValue(n)}
           axisLabel={`기준월 (${year}년)`}
@@ -479,7 +484,7 @@ export default function MedicalBoard({ data }: { data: MedicalBoardData }) {
         step="2"
         title="어디에 — 지역별 의료소비"
         question={`외국인 의료관광 소비는 ${period} 기준 어느 시도에 몰리나?`}
-        note={`5번 자료입니다. 국가 구분이 없어 전체 외국인 합계 기준입니다.${
+        note={`「지역별 의료소비」 자료입니다. 국가 구분이 없어 전체 외국인 합계 기준입니다.${
           nationwide[metric] > 0
             ? ` 17개 시도 합계는 데이터랩 "전국" 값의 ${fmtPct((regionSum / nationwide[metric]) * 100)}%로, 나머지는 시도가 특정되지 않은 소비입니다.`
             : ""
@@ -521,7 +526,7 @@ export default function MedicalBoard({ data }: { data: MedicalBoardData }) {
         step="3"
         title="무엇을 — 진료과목 구성"
         question={`${period} 기준, 어느 진료과목에 쓰나? 국가마다 · 지역마다 다른가?`}
-        note={`국가별은 4번의 월별 비율을 기간 소비 규모로 가중평균했습니다. 지역별은 5번에 월 구분이 없어 ${year}년 전체 기준이며, 위의 기준월을 따르지 않습니다. 8% 이상 구간에는 값을 직접 표시했고, 전체 수치는 '표로 보기'에서 볼 수 있습니다.`}
+        note={`국가별은 「국가별 의료소비」의 월별 비율을 기간 소비 규모로 가중평균했습니다. 지역별은 「지역별 의료소비」에 월 구분이 없어 ${year}년 전체 기준이며, 위의 기준월을 따르지 않습니다. 8% 이상 구간에는 값을 직접 표시했고, 전체 수치는 '표로 보기'에서 볼 수 있습니다.`}
       >
         <div style={{ display: "grid", gap: 22 }}>
           <div>
