@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import MultiLineChart, { type NamedSeries } from "../../_components/MultiLineChart";
 import { KoreaBubbleMap, type KoreaMapData, type TooltipProps } from "../../_koreaBubbleMap/KoreaBubbleMap";
 import { SIDO_CODES } from "../../_koreaBubbleMap/sidoCodes";
-import type { CountryBoard, MedicalRegionYear, TourData } from "./data";
+import type { CountryBoard, MedicalRegionData, TourData } from "./data";
 
 const INK = "#171A21";
 const MUTED = "#6B7280";
@@ -16,8 +16,8 @@ const SEQ_LOW = "#cde2fb";
 const SEQ_HIGH = "#0d366b";
 const seqColor = d3.interpolateRgb(SEQ_LOW, SEQ_HIGH);
 
-// 지표 3종 색 — dataviz 검증 팔레트 슬롯 1~3(blue/orange/aqua).
-const METRIC_COLORS = { visit: "#2a78d6", spend: "#eb6834", medical: "#1baf7a" } as const;
+// 지표 4종 색 — dataviz 검증 팔레트 슬롯 1~4(blue/orange/aqua/purple).
+const METRIC_COLORS = { visit: "#2a78d6", spend: "#eb6834", medical: "#1baf7a", regionMedical: "#8a5cf6" } as const;
 
 const MAP_W = 700;
 const MAP_H = 910;
@@ -29,7 +29,6 @@ const REGIONS = SIDO_CODES;
 
 const fmtPct = d3.format(".1f");
 const fmtWon = d3.format(",");
-const fmtCompact = d3.format("~s");
 const fmtPeople = d3.format(",");
 
 /** 관광소비 원자료 단위는 천원 — 억/조로 접어야 지도 툴팁과 랭크에 들어간다. */
@@ -42,7 +41,6 @@ function fmtSpend(thousandWon: number) {
 }
 
 type RegionMetric = "visit" | "spend";
-type MedicalMetric = "count" | "amount";
 type HeatMode = "share" | "volume";
 
 type Estimate = { visitors: number; spend: number; totalVisitors: number; totalSpend: number };
@@ -247,7 +245,7 @@ export default function MarketingBoard({
   medical,
 }: {
   tour: TourData;
-  medical: MedicalRegionYear;
+  medical: MedicalRegionData;
 }) {
   const fullYears = tour.years.filter((y) => (tour.monthsByYear[y]?.length ?? 0) === 12);
   const defaultYear = fullYears[fullYears.length - 1] ?? tour.years[tour.years.length - 1];
@@ -258,8 +256,6 @@ export default function MarketingBoard({
   const [month, setMonth] = useState<string>(ALL);
   const [regionMetric, setRegionMetric] = useState<RegionMetric>("visit");
   const [heatMode, setHeatMode] = useState<HeatMode>("share");
-  const [medicalMetric, setMedicalMetric] = useState<MedicalMetric>("count");
-  const [medicalYear, setMedicalYear] = useState(medical.years[medical.years.length - 1]);
 
   const board: CountryBoard | undefined = tour.boards.find((b) => b.label === country) ?? tour.boards[0];
   const months = tour.monthsByYear[tourYear] ?? MONTHS;
@@ -323,9 +319,33 @@ export default function MarketingBoard({
     [byMonth, months]
   );
 
+  const medicalSeries = useMemo(
+    () => Object.fromEntries(Object.entries(med ?? {}).map(([m, v]) => [Number(m), v.amount])),
+    [med]
+  );
+
+  /**
+   * 5번이 월 단위가 되면서 생긴 선택 방문지의 의료소비 추이. 4번(국가별)과 축이 다르다 —
+   * 이쪽은 지역이 맞물리는 대신 국가 구분이 없는 전체 외국인 합계다.
+   */
+  const regionMedicalSeries = useMemo(() => {
+    const out: Record<number, number> = {};
+    for (const m of medical.monthsByYear[tourYear] ?? []) {
+      if (regionCode === ALL) {
+        const nation = medical.nationwide[tourYear]?.[m];
+        if (nation) out[m] = nation.amount;
+      } else {
+        const cell = medical.byYearMonth[tourYear]?.[m]?.[regionCode];
+        if (cell) out[m] = cell.amount;
+      }
+    }
+    return out;
+  }, [medical, tourYear, regionCode]);
+
   const peakVisit = peakMonth(visitSeries);
   const peakSpend = peakMonth(spendSeries);
-  const peakMedical = peakMonth(med);
+  const peakMedical = peakMonth(medicalSeries);
+  const peakMedicalCell = peakMedical ? med?.[peakMedical.month] : undefined;
 
   // 지역 1위는 6개국 모두 서울이라 정보량이 없다 — 서울을 뺀 2순위를 같이 보여줘야
   // "서울 외에 어디를 노릴지"라는 실제 의사결정에 쓸 수 있다.
@@ -360,9 +380,10 @@ export default function MarketingBoard({
     return [
       build("방문", METRIC_COLORS.visit, visitSeries),
       build("관광소비", METRIC_COLORS.spend, spendSeries),
-      build("의료소비", METRIC_COLORS.medical, med ?? {}),
+      build("의료소비·국가", METRIC_COLORS.medical, medicalSeries),
+      build("의료소비·지역", METRIC_COLORS.regionMedical, regionMedicalSeries),
     ];
-  }, [visitSeries, spendSeries, med, months]);
+  }, [visitSeries, spendSeries, medicalSeries, regionMedicalSeries, months]);
 
   const regionValue = (r: (typeof byRegion)[number]) => (regionMetric === "visit" ? r.visitors : r.spend);
   const regionMax = Math.max(...regionRows.map(regionValue), 1);
@@ -408,25 +429,6 @@ export default function MarketingBoard({
     };
   }, [byRegion, cell, months, regionMetric, tourYear]);
 
-  const medicalRows = useMemo(
-    () => [...(medical.byYear[medicalYear] ?? [])].sort((a, b) => b[medicalMetric] - a[medicalMetric]),
-    [medical, medicalYear, medicalMetric]
-  );
-  const medicalMax = Math.max(...medicalRows.map((r) => r[medicalMetric]), 1);
-  const medicalMapData: KoreaMapData = useMemo(
-    () => ({
-      sido: medicalRows.map((r) => ({
-        code: r.code,
-        name: r.short,
-        count: r[medicalMetric],
-        fill: seqColor(r[medicalMetric] / medicalMax),
-      })),
-    }),
-    [medicalRows, medicalMetric, medicalMax]
-  );
-
-  const medicalUnit = medicalMetric === "count" ? "건" : "원";
-  const medicalLabel = medicalMetric === "count" ? "의료 소비건수" : "의료 소비액";
   const metricWord = regionMetric === "visit" ? "방문" : "관광소비";
 
   return (
@@ -537,7 +539,13 @@ export default function MarketingBoard({
           title="최다 의료소비 월 (전국)"
           color={METRIC_COLORS.medical}
           headline={peakMedical ? `${peakMedical.month}월` : "데이터 없음"}
-          sub={peakMedical ? `${fmtWon(Math.round(peakMedical.value))}원` : `${tourYear}년 자료 없음`}
+          sub={
+            peakMedical && peakMedicalCell
+              ? `${fmtWon(Math.round(peakMedical.value))}원 · ${fmtPeople(
+                  Math.round(peakMedicalCell.count)
+                )}건 · 전체 외국인 의료소비의 ${fmtPct(peakMedicalCell.amountShare)}%`
+              : `${tourYear}년 자료 없음`
+          }
         />
         <SummaryCard
           title={`최다 ${metricWord} 지역 · ${monthName}`}
@@ -557,13 +565,13 @@ export default function MarketingBoard({
         step="1"
         title="언제 — 월별 성수기"
         question={`${country} 관광객은 ${tourYear}년 ${regionName}에 몇 월에 가장 많이 오고, 쓰고, 치료받았나?`}
-        note="방문·관광소비는 선택한 방문지 기준, 의료소비는 전국 합계입니다. 단위가 달라(명 / 천원 / 원) 각 지표의 최대월을 100으로 지수화했습니다 — 값의 크기가 아니라 '몰리는 시점'을 비교하는 차트입니다."
+        note={`방문·관광소비·의료소비(지역)는 ${regionName} 기준이고, 의료소비(국가)는 ${country} 기준이되 지역 구분이 없어 전국 합계입니다 — 4번은 국가축, 5번은 지역축이라 둘이 겹치지 않습니다. 단위가 달라(명 / 천원 / 원) 각 지표의 최대월을 100으로 지수화했습니다 — 값의 크기가 아니라 '몰리는 시점'을 비교하는 차트입니다.`}
       >
         <MultiLineChart
           key={`${country}-${tourYear}-${regionCode}`}
           series={indexedSeries}
           years={months}
-          defaultVisible={["방문", "관광소비", "의료소비"]}
+          defaultVisible={["방문", "관광소비", "의료소비·국가", "의료소비·지역"]}
           groupLabel="지표"
           valueLabel="최대월 = 100 지수"
           formatPeriod={(n) => `${n}월`}
@@ -733,62 +741,6 @@ export default function MarketingBoard({
             }}
           />
           <span>자료 없음</span>
-        </div>
-      </Panel>
-
-      <Panel
-        step="4"
-        title="의료관광 — 지역별 의료 소비"
-        question="외국인 의료관광 소비는 어느 지역에 몰리나?"
-        note="5번 데이터는 국가 구분이 없어 전체 외국인 합계 기준입니다 — 위에서 고른 타깃 국가와는 교차되지 않습니다."
-        right={
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <Select
-              label="의료 기준연도"
-              value={String(medicalYear)}
-              onChange={(v) => setMedicalYear(Number(v))}
-              options={medical.years.map((y) => ({ value: String(y), label: `${y}년` }))}
-            />
-            <Toggle
-              value={medicalMetric}
-              onChange={setMedicalMetric}
-              options={[
-                { value: "count", label: "소비건수" },
-                { value: "amount", label: "소비액" },
-              ]}
-            />
-          </div>
-        }
-      >
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(260px,1fr) 220px", gap: 16 }}>
-          <div style={{ position: "relative" }}>
-            <KoreaBubbleMap
-              key={`medical-${medicalYear}-${medicalMetric}`}
-              data={medicalMapData}
-              width={MAP_W}
-              height={MAP_H}
-              showBubbles={false}
-              enableSeoulDrilldown={false}
-              countLabel={medicalLabel}
-              countPostfix={medicalUnit}
-              customTooltip={({ name, count }: TooltipProps) => (
-                <div style={{ fontFamily: "ui-monospace, monospace", fontSize: 12.5 }}>
-                  <strong style={{ display: "block", marginBottom: 6, color: INK }}>{name}</strong>
-                  <div style={{ color: MUTED }}>
-                    {medicalLabel}{" "}
-                    <b style={{ color: INK }}>
-                      {fmtWon(Math.round(count))}
-                      {medicalUnit}
-                    </b>
-                  </div>
-                </div>
-              )}
-            />
-          </div>
-          <RankList
-            rows={medicalRows.map((r) => ({ code: r.code, short: r.short, value: r[medicalMetric] }))}
-            format={fmtCompact}
-          />
         </div>
       </Panel>
     </div>

@@ -7,15 +7,24 @@ const DATA_ROOT = path.join(process.cwd(), "data");
 // 일본=blue, 중국=orange, 미국=aqua, 대만=yellow, 태국=magenta, 홍콩=green —
 // 앱 전체에서 같은 6개국에 같은 색을 쓴다(medicalConsumptionByCountry, countryMonthlySeasonality와 동일).
 export const COUNTRIES = [
-  { label: "일본", color: "#2a78d6", medical: "4일본월간" },
-  { label: "중국", color: "#eb6834", medical: "4중국월간" },
-  { label: "미국", color: "#1baf7a", medical: "4미국월간" },
-  { label: "대만", color: "#eda100", medical: "4대만월간" },
-  { label: "태국", color: "#e87ba4", medical: "4태국월간" },
-  { label: "홍콩", color: "#008300", medical: "4홍콩월간" },
+  { label: "일본", color: "#2a78d6" },
+  { label: "중국", color: "#eb6834" },
+  { label: "미국", color: "#1baf7a" },
+  { label: "대만", color: "#eda100" },
+  { label: "태국", color: "#e87ba4" },
+  { label: "홍콩", color: "#008300" },
 ] as const;
 
 export type MonthMap<T> = Record<number, T>;
+
+export type MedicalCell = {
+  /** 이 국가 외국인의 의료 소비액·소비건수(전국). */
+  amount: number;
+  count: number;
+  /** 전체 외국인 의료 소비 중 이 국가가 차지하는 비율(%) — 국적 무관 분모를 역산할 수 있다. */
+  amountShare: number;
+  countShare: number;
+};
 
 /** 국가 구분 없는 "전체 외국인" 분모. 연도 → 시도코드 → 월 → 값. */
 export type TourTotals = Record<
@@ -31,8 +40,8 @@ export type CountryBoard = {
    * TourTotals와 곱하면 국가 × 지역 × 월 추정 절대값이 나온다.
    */
   shareByYear: Record<number, Record<string, MonthMap<{ visit?: number; spend?: number }>>>;
-  /** 연도 → 월 → 이 국가의 외국인 의료 소비액(원). 전국 합계 — 지역 구분이 없다. */
-  medicalByYear: Record<number, MonthMap<number>>;
+  /** 연도 → 월 → 이 국가의 의료 소비. 전국 합계 — 지역 구분이 없다. */
+  medicalByYear: Record<number, MonthMap<MedicalCell>>;
 };
 
 export type TourData = {
@@ -71,25 +80,29 @@ async function findDir(name: string) {
   return path.join(DATA_ROOT, match);
 }
 
-/** 4<국가>월간: 연도별 다운로드 폴더를 전부 합쳐 연도→월 맵으로 만든다(의료 소비액). */
-async function loadMedicalMonthly(folder: string, label: string) {
-  const root = await findDir(folder);
-  const subdirs = (await readdir(root, { withFileTypes: true }))
-    .filter((e) => e.isDirectory())
-    .map((e) => e.name);
+/**
+ * 4국가월간: 국가 × 월 의료 소비액·소비건수와 전체 외국인 대비 비율.
+ * `playwright/extract-medical.mjs`가 playwright/medical의 zip을 합쳐 만든다.
+ *
+ * 비율로 역산한 "전체 외국인 의료 소비액"은 6개국이 서로 일치하고, 5번(지역별) 전국 합계와도
+ * 맞는다 — 4번과 5번이 같은 지표·같은 단위라는 뜻이라 두 패널을 나란히 읽어도 된다.
+ */
+export async function loadMedicalByCountry() {
+  const dir = await findDir("4국가월간");
+  const rows = await readRows(dir, "의료소비_월별.csv");
 
-  const byYear: Record<number, MonthMap<number>> = {};
-  await Promise.all(
-    subdirs.map(async (sub) => {
-      const rows = await readRows(path.join(root, sub), `${label} 외국인 소비액 추이.csv`);
-      for (const c of rows) {
-        const year = Number(c[1].slice(0, 4));
-        const month = Number(c[1].slice(4, 6));
-        (byYear[year] ??= {})[month] = Number(c[2]);
-      }
-    })
-  );
-  return byYear;
+  const byNation: Record<string, Record<number, MonthMap<MedicalCell>>> = {};
+  for (const c of rows) {
+    const year = Number(c[1].slice(0, 4));
+    const month = Number(c[1].slice(4, 6));
+    ((byNation[c[0]] ??= {})[year] ??= {})[month] = {
+      amount: Number(c[2]),
+      count: Number(c[3]),
+      amountShare: Number(c[4]),
+      countShare: Number(c[5]),
+    };
+  }
+  return byNation;
 }
 
 /**
@@ -161,64 +174,136 @@ async function loadTourGrid() {
 }
 
 export async function loadTourData(): Promise<TourData> {
-  const grid = await loadTourGrid();
-  const boards = await Promise.all(
-    COUNTRIES.map(async (c) => ({
-      label: c.label,
-      color: c.color,
-      shareByYear: grid.shares[c.label] ?? {},
-      medicalByYear: await loadMedicalMonthly(c.medical, c.label),
-    }))
-  );
+  const [grid, medicalByCountry] = await Promise.all([loadTourGrid(), loadMedicalByCountry()]);
+  const boards = COUNTRIES.map((c) => ({
+    label: c.label,
+    color: c.color,
+    shareByYear: grid.shares[c.label] ?? {},
+    medicalByYear: medicalByCountry[c.label] ?? {},
+  }));
   return { years: grid.years, monthsByYear: grid.monthsByYear, totals: grid.totals, boards };
 }
 
-export type MedicalRegionYear = {
+/** 진료과목 8종의 소비액·소비건수 비율(%). 값이 0인 과목은 원본에 행이 없어 키도 없다. */
+export type SpecialtyShares = Record<string, { amount: number; count: number }>;
+
+/** 4국가월간/진료과목_월별: 국가 → 연도 → 월 → 진료과목 구성. */
+export async function loadCountrySpecialty() {
+  const dir = await findDir("4국가월간");
+  const rows = await readRows(dir, "진료과목_월별.csv");
+
+  const byNation: Record<string, Record<number, MonthMap<SpecialtyShares>>> = {};
+  for (const c of rows) {
+    const year = Number(c[1].slice(0, 4));
+    const month = Number(c[1].slice(4, 6));
+    const shares = (((byNation[c[0]] ??= {})[year] ??= {})[month] ??= {});
+    shares[c[2]] = { amount: Number(c[3]), count: Number(c[4]) };
+  }
+  return byNation;
+}
+
+/**
+ * 5지역월간/진료과목_연간: 시도코드(또는 "전국") → 연도 → 진료과목 구성.
+ * 지역 자료는 국가 자료와 달리 조회 기간 전체를 뭉갠 스냅샷뿐이라 월 단위가 없다.
+ */
+export async function loadRegionSpecialty() {
+  const dir = await findDir("5지역월간");
+  const rows = await readRows(dir, "진료과목_연간.csv");
+
+  const codeOf = new Map(SIDO_CODES.map((r) => [r.full.normalize("NFC"), r.code]));
+  const byRegion: Record<string, Record<number, SpecialtyShares>> = {};
+  for (const c of rows) {
+    const region = c[0].normalize("NFC");
+    // 전남광주통합특별시는 광주 + 전라남도와 같은 중복 행이라 지도 코드가 없다 — 건너뛴다.
+    const key = region === "전국" ? "전국" : codeOf.get(region);
+    if (!key) continue;
+    const shares = ((byRegion[key] ??= {})[Number(c[1])] ??= {});
+    shares[c[2]] = { amount: Number(c[3]), count: Number(c[4]) };
+  }
+  return byRegion;
+}
+
+export type MedicalBoardData = {
   years: number[];
-  /** 연도 → 시도별 {건수, 소비액}. 5번 데이터는 국가 구분이 없어 "전체 외국인" 기준이다. */
-  byYear: Record<number, { code: string; full: string; short: string; count: number; amount: number }[]>;
+  monthsByYear: Record<number, number[]>;
+  countries: {
+    label: string;
+    color: string;
+    byYear: Record<number, MonthMap<MedicalCell>>;
+    specialtyByYear: Record<number, MonthMap<SpecialtyShares>>;
+  }[];
+  regions: MedicalRegionData;
+  regionSpecialty: Record<string, Record<number, SpecialtyShares>>;
 };
 
-/** 5_연간2018-2026: 시도 × 연도 의료 소비건수·소비액 (국가 구분 없음). */
-export async function loadMedicalRegions(): Promise<MedicalRegionYear> {
-  const root = path.join(DATA_ROOT, "5_연간2018-2026");
-  const entries = await readdir(root);
+/** 의료관광 전용 페이지(2번째 보드)가 쓰는 4·5번 묶음. 관광(7번) 자료는 싣지 않는다. */
+export async function loadMedicalBoardData(): Promise<MedicalBoardData> {
+  const [byCountry, countrySpecialty, regions, regionSpecialty] = await Promise.all([
+    loadMedicalByCountry(),
+    loadCountrySpecialty(),
+    loadMedicalRegions(),
+    loadRegionSpecialty(),
+  ]);
 
-  const dirFor = (full: string) => {
-    const target = full.normalize("NFC");
-    const match = entries.find((e) => e.normalize("NFC").includes(target));
-    if (!match) throw new Error(`${root}에서 "${full}" 폴더를 찾지 못했습니다.`);
-    return path.join(root, match);
-  };
+  const countries = COUNTRIES.map((c) => ({
+    label: c.label,
+    color: c.color,
+    byYear: byCountry[c.label] ?? {},
+    specialtyByYear: countrySpecialty[c.label] ?? {},
+  }));
 
-  const loadTrend = async (dir: string, suffix: string) => {
-    const rows = await readRows(dir, suffix);
-    const out: Record<number, number> = {};
-    for (const c of rows) out[Number(c[0])] = Number(c[c.length - 1]);
-    return out;
-  };
+  const years = Object.keys(regions.monthsByYear).map(Number).sort((a, b) => a - b);
+  return { years, monthsByYear: regions.monthsByYear, countries, regions, regionSpecialty };
+}
 
-  const perRegion = await Promise.all(
-    SIDO_CODES.map(async (r) => {
-      const dir = dirFor(r.full);
-      const [count, amount] = await Promise.all([
-        loadTrend(dir, "외국인 의료 소비건수 추이.csv"),
-        loadTrend(dir, "외국인 의료 소비액 추이.csv"),
-      ]);
-      return { ...r, count, amount };
-    })
-  );
+export type MedicalRegionData = {
+  /** 연도 → 그 해에 자료가 있는 월. */
+  monthsByYear: Record<number, number[]>;
+  /**
+   * 연도 → 월 → 시도코드 → 의료 소비. 5번 자료는 국가 구분이 없어 "전체 외국인" 기준이다.
+   * 자료가 없는 지역·월은 키 자체가 없다(2026.07 광주·전남 등).
+   */
+  byYearMonth: Record<number, MonthMap<Record<string, { count: number; amount: number }>>>;
+  /** 연도 → 월 → 데이터랩 "전국" 값. 시도가 특정되지 않은 소비가 있어 17개 시도 합계보다 크다. */
+  nationwide: Record<number, MonthMap<{ count: number; amount: number }>>;
+};
 
-  const years = [...new Set(perRegion.flatMap((r) => Object.keys(r.count).map(Number)))].sort((a, b) => a - b);
-  const byYear: MedicalRegionYear["byYear"] = {};
-  for (const y of years) {
-    byYear[y] = perRegion.map((r) => ({
-      code: r.code,
-      full: r.full,
-      short: r.short,
-      count: r.count[y] ?? 0,
-      amount: r.amount[y] ?? 0,
-    }));
+/**
+ * 5지역월간: 시도 × 월 의료 소비액·소비건수 (국가 구분 없음).
+ * `playwright/extract-medical-region.mjs`가 playwright/getMedicalTourSearch의 zip을 합쳐 만든다.
+ *
+ * 예전에는 연간 스냅샷뿐이라 "언제"와 교차할 수 없었고, 최신 연도가 몇 월까지 누적된 값인지도
+ * 파일만 봐서는 알 수 없어 4번에서 역산해야 했다. 지금은 월이 그대로 들어 있다.
+ */
+export async function loadMedicalRegions(): Promise<MedicalRegionData> {
+  const dir = await findDir("5지역월간");
+  const rows = await readRows(dir, "의료소비_월별.csv");
+
+  const codeOf = new Map(SIDO_CODES.map((r) => [r.full.normalize("NFC"), r.code]));
+  const byYearMonth: MedicalRegionData["byYearMonth"] = {};
+  const nationwide: MedicalRegionData["nationwide"] = {};
+  const months: Record<number, Set<number>> = {};
+
+  for (const c of rows) {
+    const region = c[0].normalize("NFC");
+    const year = Number(c[1].slice(0, 4));
+    const month = Number(c[1].slice(4, 6));
+    const cell = { amount: Number(c[2]), count: Number(c[3]) };
+
+    if (region === "전국") {
+      (nationwide[year] ??= {})[month] = cell;
+      (months[year] ??= new Set()).add(month);
+      continue;
+    }
+    // 전남광주통합특별시는 광주광역시 + 전라남도와 원 단위까지 같은 중복 행이라 더하면 이중계상이 된다.
+    // 지도에 코드도 없어 통째로 건너뛴다 — 대신 두 구 시도가 2026.07부터 결측이 된다.
+    const code = codeOf.get(region);
+    if (!code) continue;
+    ((byYearMonth[year] ??= {})[month] ??= {})[code] = cell;
   }
-  return { years, byYear };
+
+  const monthsByYear: Record<number, number[]> = {};
+  for (const y of Object.keys(months).map(Number)) monthsByYear[y] = [...months[y]].sort((a, b) => a - b);
+
+  return { monthsByYear, byYearMonth, nationwide };
 }
