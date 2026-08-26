@@ -9,13 +9,13 @@ const NAV_SECTIONS = [
     title: "★ DEMO — 통합 보드",
     items: [
       {
-        href: "/marketingBoard",
-        label: "marketingBoard",
+        href: "/",
+        label: "홈 — 타깃 마케팅",
         desc: "언제·어디에·누구를 — 타깃 마케팅 의사결정 보드",
       },
       {
-        href: "/marketingBoard/medical",
-        label: "marketingBoard/medical",
+        href: "/medical",
+        label: "의료관광",
         desc: "의료관광 보드 — 누가·어디에·무엇을",
       },
       {

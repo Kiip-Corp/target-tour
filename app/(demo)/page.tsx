@@ -1,14 +1,14 @@
-import BoardTabs from "./BoardTabs";
-import DataSources from "./DataSources";
-import MarketingBoard from "./MarketingBoard";
-import { loadMedicalRegions, loadTourData } from "./data";
+import BoardTabs from "./_marketingBoard/BoardTabs";
+import DataSources from "./_marketingBoard/DataSources";
+import MarketingBoard from "./_marketingBoard/MarketingBoard";
+import { loadMedicalRegions, loadTourData } from "./_marketingBoard/data";
 
 export default async function MarketingBoardPage() {
   const [tour, medical] = await Promise.all([loadTourData(), loadMedicalRegions()]);
 
   return (
     <div style={{ padding: 24, fontFamily: "ui-monospace, monospace", fontSize: 13 }}>
-      <BoardTabs active="/marketingBoard" />
+      <BoardTabs active="/" />
 
       <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 6 }}>
         타깃 마케팅 의사결정 보드 — 언제 · 어디에 · 누구를

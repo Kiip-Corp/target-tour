@@ -1,14 +1,14 @@
-import BoardTabs from "../BoardTabs";
-import DataSources from "../DataSources";
-import { loadMedicalBoardData } from "../data";
-import MedicalBoard from "./MedicalBoard";
+import BoardTabs from "../_marketingBoard/BoardTabs";
+import DataSources from "../_marketingBoard/DataSources";
+import { loadMedicalBoardData } from "../_marketingBoard/data";
+import MedicalBoard from "../_marketingBoard/medical/MedicalBoard";
 
 export default async function MedicalBoardPage() {
   const data = await loadMedicalBoardData();
 
   return (
     <div style={{ padding: 24, fontFamily: "ui-monospace, monospace", fontSize: 13 }}>
-      <BoardTabs active="/marketingBoard/medical" />
+      <BoardTabs active="/medical" />
 
       <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 6 }}>
         의료관광 보드 — 누가 · 어디에 · 무엇을
