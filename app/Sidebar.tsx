@@ -19,14 +19,9 @@ const NAV_SECTIONS = [
         desc: "의료관광 보드 — 누가·어디에·무엇을",
       },
       {
-        href: "/specialtyTreemap",
-        label: "specialtyTreemap",
-        desc: "진료과목별 의료소비 비율 트리맵 (3·5 통합 — 추이·종합·지역별)",
-      },
-      {
-        href: "/popularNeighborhoods",
-        label: "popularNeighborhoods",
-        desc: "인기 소비동네 — 추이 차트 + 순위표 한 화면 (5-3 통합)",
+        href: "/breakdown",
+        label: "진료과목 · 동네",
+        desc: "무엇을·어느 동네에서 — 진료과목 트리맵 + 인기 소비동네",
       },
     ],
   },

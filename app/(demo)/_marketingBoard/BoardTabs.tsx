@@ -7,9 +7,10 @@ const MUTED = "#6B7280";
 const TABS = [
   { href: "/", step: "①", label: "타깃 마케팅", desc: "언제 · 어디에 · 누구를" },
   { href: "/medical", step: "②", label: "의료관광", desc: "누가 · 어디에 · 무엇을" },
+  { href: "/breakdown", step: "③", label: "진료과목 · 동네", desc: "무엇을 · 어느 동네에서" },
 ] as const;
 
-/** 두 보드를 오가는 탭. 서버 컴포넌트라 현재 경로를 props로 받는다. */
+/** 세 보드를 오가는 탭. 서버 컴포넌트라 현재 경로를 props로 받는다. */
 export default function BoardTabs({ active }: { active: (typeof TABS)[number]["href"] }) {
   return (
     <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>

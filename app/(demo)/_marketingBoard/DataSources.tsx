@@ -5,7 +5,7 @@ const SURFACE = "#FBFBF8";
 
 const DATALAB = "https://datalab.visitkorea.or.kr";
 
-export type SourceKey = "tour" | "medicalCountry" | "medicalRegion";
+export type SourceKey = "tour" | "medicalCountry" | "medicalRegion" | "specialtyNationwide";
 
 /**
  * 원자료의 고정 정보(이름·메뉴·축·주의)만 여기에 둔다. 어떤 값을 실제로 쓰는지는 보드마다
@@ -28,6 +28,13 @@ const SOURCES: Record<
     menu: "고부가 관광 › 의료관광 › 국가별 의료소비 추이",
     href: `${DATALAB}/datalab/portal/theme/getMedicalTourSearch.do`,
     axis: "국가 · 월 — 지역 구분 없음(항상 전국 합계)",
+    basis: "신한카드 결제 기준이라, 카드로 결제되지 않은 진료비는 잡히지 않습니다",
+  },
+  specialtyNationwide: {
+    name: "진료과목별 의료소비",
+    menu: "고부가 관광 › 의료관광 › 진료과목별 의료소비 추이",
+    href: `${DATALAB}/datalab/portal/theme/getMedicalTourSearch.do`,
+    axis: "진료과목 · 월 — 지역·국가 구분 없음(전국 전체 외국인)",
     basis: "신한카드 결제 기준이라, 카드로 결제되지 않은 진료비는 잡히지 않습니다",
   },
   medicalRegion: {

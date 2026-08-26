@@ -2,6 +2,7 @@
 
 import * as d3 from "d3";
 import { useMemo, useState } from "react";
+import { buildPeriodOptions } from "./periods";
 import { CATEGORIES, type ShareMap, type SpecialtyData } from "./categories";
 
 const INK = "#171A21";
@@ -20,28 +21,6 @@ type Metric = "amount" | "count";
 const METRIC_LABEL: Record<Metric, string> = { amount: "소비액", count: "소비건수" };
 
 type Node = { key: string; color: string; value: number; x0: number; y0: number; x1: number; y1: number };
-
-/** 기간 셀렉트 한 항목 — 전국은 스냅샷+연도+월 전부, 시도는 스냅샷 2개만 제공된다. */
-type PeriodOption = { value: string; label: string; group: string };
-
-function buildPeriodOptions(data: SpecialtyData, region: string): PeriodOption[] {
-  if (region !== "전국") {
-    return [
-      { value: "all", label: "전체기간 누적 (2018–2026)", group: "스냅샷" },
-      { value: "y2025", label: "2025년 누적", group: "스냅샷" },
-    ];
-  }
-  return [
-    { value: "all", label: "전체기간 누적 (2018–2026)", group: "스냅샷" },
-    { value: "y2025", label: "2025년 누적", group: "스냅샷" },
-    ...data.nationwide.years.map((y) => ({ value: `year:${y}`, label: `${y}년`, group: "연도별" })),
-    ...data.nationwide.months.map((m) => ({
-      value: `month:${m}`,
-      label: `${m.slice(0, 4)}-${m.slice(4, 6)}`,
-      group: "2025년 월별",
-    })),
-  ];
-}
 
 function resolveShares(data: SpecialtyData, region: string, period: string, metric: Metric): ShareMap {
   if (region === "전국") {
@@ -158,15 +137,22 @@ function TreemapPanel({
   );
 }
 
-export default function SpecialtyTreemap({ data }: { data: SpecialtyData }) {
-  const [region, setRegion] = useState("전국");
-  const [period, setPeriod] = useState("all");
+/** 지역·기간은 두 패널이 공유하므로 페이지(BreakdownBoards)가 들고 있고, 여기는 받아 쓰기만 한다. */
+export default function SpecialtyTreemap({
+  data,
+  region,
+  period,
+}: {
+  data: SpecialtyData;
+  region: string;
+  period: string;
+}) {
   const [hovered, setHovered] = useState<string | null>(null);
   const [pinned, setPinned] = useState<string | null>(null);
   const [tooltip, setTooltip] = useState<{ x: number; y: number; metric: Metric } | null>(null);
 
-  const periodOptions = useMemo(() => buildPeriodOptions(data, region), [data, region]);
   // 지역을 시도로 바꾸면 연도별·월별 옵션이 사라지므로, 없는 값이 남지 않게 렌더 시점에 보정한다.
+  const periodOptions = useMemo(() => buildPeriodOptions(data, region), [data, region]);
   const effectivePeriod = periodOptions.some((o) => o.value === period) ? period : "all";
 
   const amountShares = resolveShares(data, region, effectivePeriod, "amount");
@@ -184,20 +170,7 @@ export default function SpecialtyTreemap({ data }: { data: SpecialtyData }) {
   const activeColor = activeKey ? CATEGORIES.find((c) => c.key === activeKey)?.color ?? INK : INK;
   const diff = activeAmount - activeCount;
 
-  const regionOptions = ["전국", ...data.regions.filter((r) => r.region !== "전국").map((r) => r.region)];
-  const groups = [...new Set(periodOptions.map((o) => o.group))];
   const periodLabel = periodOptions.find((o) => o.value === effectivePeriod)?.label ?? "";
-
-  const selectStyle = {
-    border: `1px solid ${BORDER}`,
-    borderRadius: 6,
-    padding: "5px 8px",
-    fontFamily: "ui-monospace, monospace",
-    fontSize: 12,
-    color: INK,
-    background: "#fff",
-    cursor: "pointer",
-  } as const;
 
   const handleHover = (metric: Metric) => (key: string | null, pos: { x: number; y: number } | null) => {
     setHovered(key);
@@ -206,56 +179,8 @@ export default function SpecialtyTreemap({ data }: { data: SpecialtyData }) {
 
   return (
     <div style={{ fontFamily: "ui-monospace, monospace", fontSize: 13 }}>
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          alignItems: "center",
-          gap: 8,
-          padding: 12,
-          border: `1px solid ${BORDER}`,
-          borderRadius: 10,
-          background: "#fff",
-          marginBottom: 14,
-        }}
-      >
-        <span style={{ fontSize: 11, color: MUTED }}>지역</span>
-        <select aria-label="지역" value={region} onChange={(e) => setRegion(e.target.value)} style={selectStyle}>
-          {regionOptions.map((r) => (
-            <option key={r} value={r}>
-              {r}
-            </option>
-          ))}
-        </select>
-
-        <span style={{ fontSize: 11, color: MUTED, marginLeft: 6 }}>기간</span>
-        <select
-          aria-label="기간"
-          value={effectivePeriod}
-          onChange={(e) => setPeriod(e.target.value)}
-          style={selectStyle}
-        >
-          {groups.map((g) => (
-            <optgroup key={g} label={g}>
-              {periodOptions
-                .filter((o) => o.group === g)
-                .map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-            </optgroup>
-          ))}
-        </select>
-
-        {region !== "전국" && (
-          <span style={{ fontSize: 10.5, color: "#9AA1A9" }}>
-            시도는 누적 스냅샷 2종만 제공됩니다(연도·월별은 전국만).
-          </span>
-        )}
-        <span style={{ fontSize: 10.5, color: "#9AA1A9", marginLeft: "auto" }}>
-          사각형 클릭 → 아래에 고정 비교
-        </span>
+      <div style={{ fontSize: 10.5, color: "#9AA1A9", textAlign: "right", marginBottom: 8 }}>
+        사각형 클릭 → 아래에 고정 비교
       </div>
 
       {/* 소비액 · 소비건수를 좌우로 나란히 — 같은 과목이 양쪽에서 동시에 강조된다 */}

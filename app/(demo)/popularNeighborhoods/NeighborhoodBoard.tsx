@@ -65,22 +65,29 @@ function Stat({ label, value, sub }: { label: string; value: string; sub: string
   );
 }
 
+/**
+ * 지역·기간은 트리맵과 공유하므로 페이지(BreakdownBoards)가 들고 있다.
+ * 지표(소비액/소비건수)는 이 패널에만 있는 축이라 여기 남겨둔다 — 트리맵은 둘을 좌우로 함께 그린다.
+ */
 export default function NeighborhoodBoard({
   annual,
   monthly,
+  region,
+  period,
 }: {
   annual: RegionSeries[];
   monthly: RegionSeries[];
+  region: string;
+  period: Period;
 }) {
-  const [period, setPeriod] = useState<Period>("annual");
   // 기본은 소비건수 — 서울 기준 "역삼1동 6년 1위 → 2024년 명동 역전"이라는 가장 뚜렷한
   // 순위 교체 서사가 이 지표에서 나온다(소비액은 1위가 더 자주 바뀌어 첫인상이 흐리다).
   const [metric, setMetric] = useState<Metric>("count");
-  const [region, setRegion] = useState("서울");
 
   const data = period === "annual" ? annual : monthly;
   const formatPeriod = period === "annual" ? formatAnnual : formatMonthly;
-  const current = data.find((d) => d.region === region) ?? data[0];
+  // 동네 자료는 시도 폴더에만 있다 — "전국"을 고르면 대체하지 않고 안내를 띄운다.
+  const current = data.find((d) => d.region === region);
   const block = current?.[metric];
 
   // 첫 기간과 마지막 기간의 1위를 뽑아 "1위가 바뀌었는지"를 요약한다 —
@@ -107,7 +114,6 @@ export default function NeighborhoodBoard({
     return { first, last, firstPeriod: block.years[0], lastPeriod: block.years[lastIdx], changedAt };
   }, [block]);
 
-  const regions = data.map((d) => d.region);
 
   return (
     <div style={{ fontFamily: "ui-monospace, monospace", fontSize: 13 }}>
@@ -124,40 +130,7 @@ export default function NeighborhoodBoard({
           marginBottom: 14,
         }}
       >
-        <span style={{ fontSize: 11, color: MUTED }}>지역</span>
-        <select
-          aria-label="지역"
-          value={region}
-          onChange={(e) => setRegion(e.target.value)}
-          style={{
-            border: `1px solid ${BORDER}`,
-            borderRadius: 6,
-            padding: "5px 8px",
-            fontFamily: "ui-monospace, monospace",
-            fontSize: 12,
-            color: INK,
-            background: "#fff",
-            cursor: "pointer",
-          }}
-        >
-          {regions.map((r) => (
-            <option key={r} value={r}>
-              {r}
-            </option>
-          ))}
-        </select>
-
-        <span style={{ fontSize: 11, color: MUTED, marginLeft: 6 }}>기간</span>
-        <Toggle
-          value={period}
-          onChange={setPeriod}
-          options={[
-            { value: "annual", label: "연간 (2018–2026)" },
-            { value: "monthly", label: "월간 (2025)" },
-          ]}
-        />
-
-        <span style={{ fontSize: 11, color: MUTED, marginLeft: 6 }}>지표</span>
+        <span style={{ fontSize: 11, color: MUTED }}>지표</span>
         <Toggle
           value={metric}
           onChange={setMetric}
@@ -167,6 +140,24 @@ export default function NeighborhoodBoard({
           ]}
         />
       </div>
+
+      {!current && (
+        <div
+          style={{
+            border: `1px dashed ${BORDER}`,
+            borderRadius: 10,
+            padding: "18px 16px",
+            background: "#FBFBF8",
+            color: MUTED,
+            fontSize: 12,
+            lineHeight: 1.7,
+          }}
+        >
+          <b style={{ color: INK }}>{region}</b>은 동네 자료가 없습니다. 원본에서 전국 파일은 행정동이
+          아니라 시도 단위 랭킹이라 제외했습니다 — 위 <b style={{ color: INK }}>지역</b>에서 시도를
+          하나 골라 주세요.
+        </div>
+      )}
 
       {summary && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
