@@ -7,33 +7,41 @@ const DATA_ROOT = path.join(process.cwd(), "data");
 // 일본=blue, 중국=orange, 미국=aqua, 대만=yellow, 태국=magenta, 홍콩=green —
 // 앱 전체에서 같은 6개국에 같은 색을 쓴다(medicalConsumptionByCountry, countryMonthlySeasonality와 동일).
 export const COUNTRIES = [
-  { label: "일본", color: "#2a78d6", monthly: "7일본월간2020", annual: "7일본연간", medical: "4일본월간", visitKey: "일본인", heatKey: "일본" },
-  { label: "중국", color: "#eb6834", monthly: "7중국월간2020", annual: "7중국연간", medical: "4중국월간", visitKey: "중국인", heatKey: "중국" },
-  { label: "미국", color: "#1baf7a", monthly: "7미국월간2020", annual: "7미국연간", medical: "4미국월간", visitKey: "미국인", heatKey: "미국" },
-  // 대만만 "방문현황 히트맵.csv"에서 거주지가 "타이완"으로 표기돼 있다(원본 데이터 표기 불일치).
-  { label: "대만", color: "#eda100", monthly: "7대만월간2020", annual: "7대만연간", medical: "4대만월간", visitKey: "대만인", heatKey: "대만", heatmapKey: "타이완" },
-  { label: "태국", color: "#e87ba4", monthly: "7태국월간", annual: "7태국연간", medical: "4태국월간", visitKey: "태국인", heatKey: "태국" },
-  { label: "홍콩", color: "#008300", monthly: "7홍콩월간", annual: "7홍콩연간", medical: "4홍콩월간", visitKey: "홍콩인", heatKey: "홍콩" },
+  { label: "일본", color: "#2a78d6", medical: "4일본월간" },
+  { label: "중국", color: "#eb6834", medical: "4중국월간" },
+  { label: "미국", color: "#1baf7a", medical: "4미국월간" },
+  { label: "대만", color: "#eda100", medical: "4대만월간" },
+  { label: "태국", color: "#e87ba4", medical: "4태국월간" },
+  { label: "홍콩", color: "#008300", medical: "4홍콩월간" },
 ] as const;
 
-/** 7번 월간(방문/관광소비)이 실제로 커버하는 연도 — 이 범위가 보드의 "기준연도" 옵션이 된다. */
-export const TOUR_YEARS = [2020, 2021, 2022, 2023, 2024, 2025];
+export type MonthMap<T> = Record<number, T>;
 
-export type RegionValue = { code: string; full: string; short: string; value: number };
+/** 국가 구분 없는 "전체 외국인" 분모. 연도 → 시도코드 → 월 → 값. */
+export type TourTotals = Record<
+  number,
+  Record<string, MonthMap<{ visitors: number; spend: number }>>
+>;
 
 export type CountryBoard = {
   label: string;
   color: string;
-  /** 연도 → 월(1~12) → 값. 서울 방문 외국인 중 해당 국가 비율(%) */
-  visitByYear: Record<number, Record<number, number>>;
-  /** 연도 → 월(1~12) → 값. 서울 관광소비 중 해당 국가 비율(%) */
-  spendByYear: Record<number, Record<number, number>>;
-  /** 연도 → 월(1~12) → 값. 해당 국가 외국인 의료 소비액(원, 전국 기준) */
-  medicalByYear: Record<number, Record<number, number>>;
-  /** 17개 시도별 방문자 비율(%) — 연간 스냅샷(월 구분 없음) */
-  regionVisit: RegionValue[];
-  /** 17개 시도별 관광소비 비율(%) — 연간 스냅샷(월 구분 없음) */
-  regionSpend: RegionValue[];
+  /**
+   * 연도 → 시도코드 → 월 → 해당 시도 방문/관광소비 중 이 국가가 차지하는 비율(%).
+   * TourTotals와 곱하면 국가 × 지역 × 월 추정 절대값이 나온다.
+   */
+  shareByYear: Record<number, Record<string, MonthMap<{ visit?: number; spend?: number }>>>;
+  /** 연도 → 월 → 이 국가의 외국인 의료 소비액(원). 전국 합계 — 지역 구분이 없다. */
+  medicalByYear: Record<number, MonthMap<number>>;
+};
+
+export type TourData = {
+  /** 방문/관광소비 자료가 실제로 있는 연도 — 보드의 "기준연도" 옵션이 된다. */
+  years: number[];
+  /** 연도 → 자료가 있는 월. 2026처럼 연중 자료는 여기서 잘린다. */
+  monthsByYear: Record<number, number[]>;
+  totals: TourTotals;
+  boards: CountryBoard[];
 };
 
 async function findCsv(dir: string, suffix: string) {
@@ -52,7 +60,7 @@ async function readRows(dir: string, suffix: string) {
     .trim()
     .split("\n")
     .slice(1)
-    .map((line) => line.split(","));
+    .map((line) => line.split(",").map((c) => c.trim()));
 }
 
 async function findDir(name: string) {
@@ -63,38 +71,6 @@ async function findDir(name: string) {
   return path.join(DATA_ROOT, match);
 }
 
-/** 7<국가>월간: 연도별 하위 폴더에 12개월씩 나뉘어 있어 연도→월 2단 맵으로 모은다. */
-async function loadTourMonthly(folder: string, visitKey: string, spendKey: string) {
-  const root = await findDir(folder);
-  const visitByYear: Record<number, Record<number, number>> = {};
-  const spendByYear: Record<number, Record<number, number>> = {};
-
-  await Promise.all(
-    TOUR_YEARS.map(async (year) => {
-      const dir = path.join(root, String(year));
-      // 원본 수집이 누락돼 폴더만 있고 비어 있는 연도가 있을 수 있어 방어한다.
-      const files = await readdir(dir).catch(() => []);
-      if (files.filter((f) => !f.startsWith(".")).length === 0) return;
-
-      const [visitRows, spendRows] = await Promise.all([
-        readRows(dir, "방문 추이.csv"),
-        readRows(dir, "관광소비 추이.csv"),
-      ]);
-      visitByYear[year] = {};
-      spendByYear[year] = {};
-      for (const c of visitRows) {
-        if (c[1] !== visitKey) continue;
-        visitByYear[year][Number(c[0].slice(4, 6))] = Number(c[4]);
-      }
-      for (const c of spendRows) {
-        if (c[1] !== spendKey) continue;
-        spendByYear[year][Number(c[0].slice(4, 6))] = Number(c[3]);
-      }
-    })
-  );
-  return { visitByYear, spendByYear };
-}
-
 /** 4<국가>월간: 연도별 다운로드 폴더를 전부 합쳐 연도→월 맵으로 만든다(의료 소비액). */
 async function loadMedicalMonthly(folder: string, label: string) {
   const root = await findDir(folder);
@@ -102,7 +78,7 @@ async function loadMedicalMonthly(folder: string, label: string) {
     .filter((e) => e.isDirectory())
     .map((e) => e.name);
 
-  const byYear: Record<number, Record<number, number>> = {};
+  const byYear: Record<number, MonthMap<number>> = {};
   await Promise.all(
     subdirs.map(async (sub) => {
       const rows = await readRows(path.join(root, sub), `${label} 외국인 소비액 추이.csv`);
@@ -116,50 +92,85 @@ async function loadMedicalMonthly(folder: string, label: string) {
   return byYear;
 }
 
-/** 7<국가>연간: 국가 × 17개 시도 분포(연간 스냅샷). */
-async function loadRegionDistribution(folder: string, heatmapKey: string, spendKey: string) {
-  const dir = await findDir(folder);
+/**
+ * 7국가지역월간: 국가 × 17개 시도 × 월 방문/관광소비.
+ *
+ * 예전에는 월간 자료의 방문지가 서울특별시 하나뿐이라 "언제"와 "어디에"를 교차할 수 없었다.
+ * 지금은 시도 전체를 받아 두 축이 맞물린다 — 두 CSV는 `playwright/extract-datalab.mjs`가
+ * playwright/downloads의 zip을 합쳐 만든다.
+ *
+ * "전체 외국인 방문자 수"·"전체 관광소비액"은 국가와 무관한 분모라 6개국 행에 그대로 반복된다.
+ * 그래서 분모는 totals에 한 번만 담고, 국가별로는 비율만 들고 있다가 곱해서 쓴다.
+ */
+async function loadTourGrid() {
+  const dir = await findDir("7국가지역월간");
   const [visitRows, spendRows] = await Promise.all([
-    readRows(dir, "방문현황 히트맵.csv"),
-    readRows(dir, "관광소비 현황.csv"),
+    readRows(dir, "방문_월별.csv"),
+    readRows(dir, "관광소비_월별.csv"),
   ]);
 
-  const pick = (rows: string[][], key: string) => {
-    const map = new Map<string, number>();
-    for (const c of rows) {
-      if (c[0].trim() !== key) continue;
-      map.set(c[1].trim(), Number(c[2]));
-    }
-    return SIDO_CODES.map((r) => ({
-      code: r.code,
-      full: r.full,
-      short: r.short,
-      value: map.get(r.full) ?? 0,
-    }));
+  const codeOf = new Map(SIDO_CODES.map((r) => [r.full.normalize("NFC"), r.code]));
+  const totals: TourTotals = {};
+  const shares: Record<string, CountryBoard["shareByYear"]> = {};
+  const months: Record<number, Set<number>> = {};
+
+  // 방문자 수 비율(%)이 비어 있는 달이 드물게 있다(세종 2020 등, 표본이 적어 원본에서 마스킹).
+  // 0으로 채우면 "그 달엔 아무도 안 왔다"가 되어버리므로 아예 넣지 않고 결측으로 남긴다.
+  const put = (
+    nation: string,
+    code: string,
+    year: number,
+    month: number,
+    key: "visit" | "spend",
+    value: number
+  ) => {
+    const byYear = (shares[nation] ??= {});
+    const byCode = (byYear[year] ??= {});
+    const byMonth = (byCode[code] ??= {});
+    (byMonth[month] ??= {})[key] = value;
   };
-  return { regionVisit: pick(visitRows, heatmapKey), regionSpend: pick(spendRows, spendKey) };
+
+  for (const c of visitRows) {
+    const code = codeOf.get(c[1].normalize("NFC"));
+    if (!code) continue;
+    const year = Number(c[2].slice(0, 4));
+    const month = Number(c[2].slice(4, 6));
+    ((totals[year] ??= {})[code] ??= {})[month] = {
+      visitors: Number(c[3]),
+      spend: 0,
+    };
+    (months[year] ??= new Set()).add(month);
+    if (c[4] !== "") put(c[0], code, year, month, "visit", Number(c[4]));
+  }
+
+  for (const c of spendRows) {
+    const code = codeOf.get(c[1].normalize("NFC"));
+    if (!code) continue;
+    const year = Number(c[2].slice(0, 4));
+    const month = Number(c[2].slice(4, 6));
+    const cell = totals[year]?.[code]?.[month];
+    if (cell) cell.spend = Number(c[4]);
+    if (c[3] !== "") put(c[0], code, year, month, "spend", Number(c[3]));
+  }
+
+  const years = Object.keys(months).map(Number).sort((a, b) => a - b);
+  const monthsByYear: Record<number, number[]> = {};
+  for (const y of years) monthsByYear[y] = [...months[y]].sort((a, b) => a - b);
+
+  return { years, monthsByYear, totals, shares };
 }
 
-export async function loadCountryBoards(): Promise<CountryBoard[]> {
-  return Promise.all(
-    COUNTRIES.map(async (c) => {
-      const heatmapKey = "heatmapKey" in c ? c.heatmapKey : c.heatKey;
-      const [tour, medicalByYear, region] = await Promise.all([
-        loadTourMonthly(c.monthly, c.visitKey, c.heatKey),
-        loadMedicalMonthly(c.medical, c.label),
-        loadRegionDistribution(c.annual, heatmapKey, c.heatKey),
-      ]);
-      return {
-        label: c.label,
-        color: c.color,
-        visitByYear: tour.visitByYear,
-        spendByYear: tour.spendByYear,
-        medicalByYear,
-        regionVisit: region.regionVisit,
-        regionSpend: region.regionSpend,
-      };
-    })
+export async function loadTourData(): Promise<TourData> {
+  const grid = await loadTourGrid();
+  const boards = await Promise.all(
+    COUNTRIES.map(async (c) => ({
+      label: c.label,
+      color: c.color,
+      shareByYear: grid.shares[c.label] ?? {},
+      medicalByYear: await loadMedicalMonthly(c.medical, c.label),
+    }))
   );
+  return { years: grid.years, monthsByYear: grid.monthsByYear, totals: grid.totals, boards };
 }
 
 export type MedicalRegionYear = {

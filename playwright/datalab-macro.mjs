@@ -77,6 +77,7 @@ function parseArgs(argv) {
     slow: 0,
     dryRun: false,
     force: false,
+    retries: 2,
     timeout: 180_000,
   };
   for (let i = 2; i < argv.length; i++) {
@@ -92,6 +93,7 @@ function parseArgs(argv) {
       case '--slow': out.slow = Number(next()); break;
       case '--dry-run': out.dryRun = true; break;
       case '--force': out.force = true; break;
+      case '--retries': out.retries = Number(next()); break;
       case '--timeout': out.timeout = Number(next()); break;
       case '--help': case '-h':
         console.log(fs.readFileSync(fileURLToPath(import.meta.url), 'utf8').split('*/')[0]);
@@ -235,28 +237,50 @@ async function isLoggedIn(page) {
   });
 }
 
-async function login(context, { id, pw, timeout }) {
-  const page = await context.newPage();
-  page.setDefaultTimeout(timeout);
-  const state = instrument(page);
-  await page.goto(LOGIN_URL, { waitUntil: 'domcontentloaded' });
-  await page.fill('#mbrId', id);
-  await page.fill('#mbrPw', pw);
+async function login(context, { id, pw, timeout, attempts = 3 }) {
+  let lastErr;
+  for (let i = 1; i <= attempts; i++) {
+    const page = await context.newPage();
+    page.setDefaultTimeout(timeout);
+    const state = instrument(page);
+    try {
+      await page.goto(LOGIN_URL, { waitUntil: 'domcontentloaded' });
+      await page.fill('#mbrId', id);
+      await page.fill('#mbrPw', pw);
 
-  const [res] = await Promise.all([
-    page.waitForResponse(r => r.url().includes('/datalab/portal/mbr/login.do'), { timeout }),
-    page.click('input[value="로그인"]'),
-  ]);
-  let body = null;
-  try { body = await res.json(); } catch { /* ignore */ }
-  const rtnCd = body?.info?.rtnCd;
-  if (rtnCd !== 'S') {
-    const msg = body?.info?.rtnMsg ?? state.dialogs.join(' / ') ?? '(응답 없음)';
-    throw new Error(`로그인 실패 (rtnCd=${rtnCd ?? '?'}): ${msg}`);
+      const resP = page.waitForResponse(r => r.url().includes('/datalab/portal/mbr/login.do'), { timeout });
+      await page.click('input[value="로그인"]');
+      const res = await resP;
+
+      // funLogin() 은 성공 즉시 FrmSearch 를 submit 해 페이지를 이동시킨다.
+      // 그 사이 응답 본문을 못 읽는 경우가 있으므로 본문 파싱 실패를 로그인 실패로 단정하지 않고,
+      // 실제 세션(loginChk 인라인 아이디)으로 확인한다.
+      let rtnCd = null;
+      let rtnMsg = '';
+      try {
+        const body = await res.json();
+        rtnCd = body?.info?.rtnCd ?? null;
+        rtnMsg = body?.info?.rtnMsg ?? '';
+      } catch { /* 이동 중이라 본문을 못 읽음 */ }
+      if (rtnCd && rtnCd !== 'S') throw new Error(`rtnCd=${rtnCd} ${rtnMsg}`.trim());
+
+      await page.goto(TARGET_URL, { waitUntil: 'domcontentloaded' });
+      await page.waitForFunction(() => typeof window.loginChk === 'function');
+      if (!(await isLoggedIn(page))) {
+        throw new Error(rtnMsg || state.dialogs.join(' / ') || '세션이 만들어지지 않음');
+      }
+
+      await page.close();
+      log(`로그인 성공: ${id}`);
+      return;
+    } catch (e) {
+      lastErr = e;
+      log(`로그인 시도 ${i}/${attempts} 실패: ${e.message.split('\n')[0]}`);
+      await page.close().catch(() => {});
+      if (i < attempts) await sleep(5_000 * i);
+    }
   }
-  await waitNetworkQuiet(state, { quietMs: 1000, timeout: 30_000 });
-  await page.close();
-  log(`로그인 성공: ${id}`);
+  throw new Error(`로그인 실패: ${lastErr?.message ?? '알 수 없음'}`);
 }
 
 /** 구분 = 외국인, 방문자 거주지 = nation */
@@ -490,7 +514,30 @@ async function main() {
     }
     log(`방문지 ${sidos.length}개 × ${years.length}년 × 탭 ${TABS.length}개 = ${sidos.length * years.length * TABS.length}건`);
 
+    /**
+     * 페이지를 다시 로드해 조건을 재설정한다.
+     * 한 페이지에서 수백 번 조회하면 amChart 인스턴스와 jQuery 핸들러가 계속 쌓여
+     * 렌더러가 느려지고 아무 조작도 응답하지 않는 상태가 된다(page.textContent 타임아웃).
+     * 시도가 바뀔 때마다(=14건마다) 새로 로드해 초기화한다.
+     */
+    let freshPage = true;
+    const resetPage = async () => {
+      await page.goto(TARGET_URL, { waitUntil: 'domcontentloaded' });
+      await page.waitForFunction(() => typeof window.funSrch === 'function' && window.jQuery);
+      await waitNetworkQuiet(state, { quietMs: 1200, timeout: 60_000 });
+      if (!args.dryRun && !(await isLoggedIn(page))) {
+        log('세션이 끊겼습니다 → 재로그인');
+        await login(context, { id, pw, timeout: args.timeout });
+        await page.goto(TARGET_URL, { waitUntil: 'domcontentloaded' });
+        await page.waitForFunction(() => typeof window.funSrch === 'function' && window.jQuery);
+        await waitNetworkQuiet(state, { quietMs: 1200, timeout: 60_000 });
+      }
+      await selectForeignerAndNation(page, state, args.nation);
+    };
+
     for (const sido of sidos) {
+      if (!freshPage) await resetPage();
+      freshPage = false;
       for (const year of years) {
         // 요청 기간을 사이트/시도 제약과 교집합
         let from = `${year}01`;
@@ -532,15 +579,17 @@ async function main() {
 
         for (const tab of (args.dryRun ? TABS : todo)) {
           const label = `${sido.nm} ${range} ${tab.key}`;
+          for (let attempt = 1; attempt <= args.retries + 1; attempt++) {
+          const lastAttempt = attempt === args.retries + 1;
           try {
-            log(`▶ ${label}`);
+            log(`▶ ${label}${attempt > 1 ? ` (재시도 ${attempt - 1}/${args.retries})` : ''}`);
             const actual = await runQuery(page, state, { tab, from, to, sidoNm: sido.nm, timeout: args.timeout });
 
             if (args.dryRun) {
               log(`  (dry-run) 조회 완료 · 기간 ${actual.range} · 차트응답 ${state.chartResponses}`);
               await record({ nation: args.nation, sido: sido.nm, range: actual.range, tab: tab.key, status: 'dry-run' });
               summary.ok++;
-              continue;
+              break;
             }
 
             // 사이트가 기간을 보정했으면 실제 기간을 폴더명으로 쓰고, 이미 받은 파일이면 건너뛴다.
@@ -549,7 +598,7 @@ async function main() {
             if (!args.force && actual.range !== range && await existingFile(outDir, safe(tab.key))) {
               log(`  - 보정된 기간 ${actual.range} 파일이 이미 있어 건너뜀`);
               summary.skipped++;
-              continue;
+              break;
             }
 
             const r = await downloadAll(page, state, { dir: outDir, stem: safe(tab.key), timeout: args.timeout });
@@ -559,11 +608,17 @@ async function main() {
               status: 'ok', file: path.relative(ROOT, r.dest), suggested: r.suggested, bytes: r.size,
             });
             summary.ok++;
+            break;
           } catch (e) {
-            summary.failed++;
-            log(`  ✗ ${label}: ${e.message}`);
-            await record({ nation: args.nation, sido: sido.nm, range, tab: tab.key, status: 'failed', error: e.message });
-            // 실패 시 페이지가 로그인 폼으로 튕겨 있을 수 있으므로 목록 페이지로 되돌리고 조건을 재설정한다.
+            if (lastAttempt) {
+              summary.failed++;
+              log(`  ✗ ${label}: ${e.message}`);
+              await record({ nation: args.nation, sido: sido.nm, range, tab: tab.key, status: 'failed', error: e.message });
+            } else {
+              log(`  … ${label}: ${e.message.split('\n')[0]}`);
+            }
+            // 실패 원인은 대개 서버 일시 오류거나 오래 돌린 탭의 렌더러 저하다.
+            // 페이지가 로그인 폼으로 튕겨 있을 수도 있으므로 목록 페이지로 되돌리고 조건을 재설정한다.
             try {
               await page.goto(TARGET_URL, { waitUntil: 'domcontentloaded' });
               await page.waitForFunction(() => typeof window.funSrch === 'function' && window.jQuery);
@@ -583,6 +638,7 @@ async function main() {
               log(`  !! 복구 실패, 중단: ${e2.message}`);
               throw e2;
             }
+          }
           }
         }
       }
