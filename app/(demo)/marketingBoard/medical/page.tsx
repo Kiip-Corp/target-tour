@@ -14,7 +14,7 @@ export default async function MedicalBoardPage() {
         의료관광 보드 — 누가 · 어디에 · 무엇을
       </h1>
       <p style={{ fontSize: 12, color: "#6B7280", marginBottom: 14, lineHeight: 1.7 }}>
-        관광 자료를 빼고 의료 자료만 모았습니다. ① 어느 나라 외국인이 몇 월에 치료받는지, ② 어느
+        의료 자료만 모은 보드입니다. ① 어느 나라 외국인이 몇 월에 치료받는지, ② 어느
         시도에 소비가 몰리는지, ③ 어느 진료과목에 쓰는지를 국가별·지역별로 나란히 놓습니다.
         6개국 · 17개 시도 · <b>2020년 1월 ~ 2026년 7월</b> 월간 기준입니다.
       </p>
@@ -22,9 +22,16 @@ export default async function MedicalBoardPage() {
       <DataSources
         period="2020.01 ~ 2026.07"
         items={[
-          { key: "medicalCountry", use: "패널 1(국가별 추이)과 패널 3의 국가별 진료과목 구성" },
+          {
+            key: "medicalCountry",
+            fields:
+              "국가별 의료 소비액(천원)·소비건수, 전체 외국인 대비 비율(%), 진료과목별 구성비(%) — 전부 월별",
+            use: "패널 1(국가별 추이)과 패널 3의 국가별 진료과목 구성",
+          },
           {
             key: "medicalRegion",
+            fields:
+              "시도별·전국 의료 소비액(천원)·소비건수(월별)와 진료과목별 구성비(%, 연 단위)",
             use: "패널 2(지역별 지도·랭킹)와 패널 3의 지역별 진료과목 구성, 상단 “전체 외국인” 요약 카드",
           },
         ]}

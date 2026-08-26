@@ -11,12 +11,12 @@ const NAV_SECTIONS = [
       {
         href: "/marketingBoard",
         label: "marketingBoard",
-        desc: "언제·어디에·누구를 — 타깃 마케팅 의사결정 보드 (4·5·7 통합)",
+        desc: "언제·어디에·누구를 — 타깃 마케팅 의사결정 보드",
       },
       {
         href: "/marketingBoard/medical",
         label: "marketingBoard/medical",
-        desc: "의료관광 보드 — 누가·어디에·무엇을 (4·5 의료 전용)",
+        desc: "의료관광 보드 — 누가·어디에·무엇을",
       },
       {
         href: "/specialtyTreemap",

@@ -8,18 +8,18 @@ const DATALAB = "https://datalab.visitkorea.or.kr";
 export type SourceKey = "tour" | "medicalCountry" | "medicalRegion";
 
 /**
- * 보드가 쓰는 원자료 3종. 이름은 화면 문구·차트 범례와 같은 말을 쓴다 —
- * 팀 내부 자료 순번("4번" 등)은 처음 보는 사람이 알 수 없는 정보라 화면에 내보내지 않는다.
+ * 원자료의 고정 정보(이름·메뉴·축·주의)만 여기에 둔다. 어떤 값을 실제로 쓰는지는 보드마다
+ * 다르므로 페이지가 `fields`로 넘긴다 — 그 보드에 없는 지표까지 설명하면 안 되기 때문이다.
+ * 이름은 화면 문구·차트 범례와 같은 말을 쓰고, 팀 내부 자료 순번은 화면에 내보내지 않는다.
  */
 const SOURCES: Record<
   SourceKey,
-  { name: string; menu: string; href: string; gives: string; axis: string; basis: string }
+  { name: string; menu: string; href: string; axis: string; basis: string }
 > = {
   tour: {
     name: "방문 · 관광소비",
     menu: "지역별 분석 › 지역별 방문자수/관광소비",
     href: `${DATALAB}/datalab/portal/loc/getAreaVisitDataForm.do`,
-    gives: "시도별 “전체 외국인” 방문자 수(명)와 관광소비액(천원), 그리고 그중 각 국가가 차지하는 비율(%)",
     axis: "국가 · 지역(17개 시도) · 월 — 셋 다 있음",
     basis: "국가별 절대값은 데이터랩이 주지 않아, 전체 외국인 값 × 국가 비율(%)로 계산합니다",
   },
@@ -27,8 +27,6 @@ const SOURCES: Record<
     name: "국가별 의료소비",
     menu: "고부가 관광 › 의료관광 › 국가별 의료소비 추이",
     href: `${DATALAB}/datalab/portal/theme/getMedicalTourSearch.do`,
-    gives:
-      "국가별 의료 소비액(천원)·소비건수와 전체 외국인 대비 비율(%), 진료과목별 구성비(%)",
     axis: "국가 · 월 — 지역 구분 없음(항상 전국 합계)",
     basis: "신한카드 결제 기준이라, 카드로 결제되지 않은 진료비는 잡히지 않습니다",
   },
@@ -36,20 +34,20 @@ const SOURCES: Record<
     name: "지역별 의료소비",
     menu: "고부가 관광 › 의료관광 › 지역별 의료소비 추이",
     href: `${DATALAB}/datalab/portal/theme/getMedicalTourSearch.do`,
-    gives: "시도별·전국 의료 소비액(천원)·소비건수와 진료과목별 구성비(%)",
     axis: "지역 · 월 — 국가 구분 없음(항상 전체 외국인 합계)",
     basis: "신한카드 결제 기준이라, 카드로 결제되지 않은 진료비는 잡히지 않습니다",
   },
 };
 
 /**
- * 보드 머리에 붙는 출처 카드. `use`에는 "이 보드에서 이걸로 무엇을 그리는지"를 넣는다.
+ * 보드 머리에 붙는 출처 카드. 이 보드가 실제로 읽는 컬럼(`fields`)과 그걸로 그리는 것(`use`)만
+ * 적는다 — 다른 탭에서만 쓰는 지표는 그 탭의 카드에 적는다.
  */
 export default function DataSources({
   items,
   period,
 }: {
-  items: { key: SourceKey; use: string }[];
+  items: { key: SourceKey; fields: string; use: string }[];
   period: string;
 }) {
   return (
@@ -70,7 +68,7 @@ export default function DataSources({
       </summary>
 
       <div style={{ marginTop: 10, display: "grid", gap: 10 }}>
-        {items.map(({ key, use }) => {
+        {items.map(({ key, fields, use }) => {
           const s = SOURCES[key];
           return (
             <div
@@ -97,7 +95,7 @@ export default function DataSources({
                   </a>
                 </div>
                 <div>
-                  <span style={{ color: INK }}>들어 있는 값</span> · {s.gives}
+                  <span style={{ color: INK }}>이 보드가 쓰는 값</span> · {fields}
                 </div>
                 <div>
                   <span style={{ color: INK }}>축</span> · {s.axis}

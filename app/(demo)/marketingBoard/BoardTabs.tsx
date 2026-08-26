@@ -5,8 +5,8 @@ const INK = "#171A21";
 const MUTED = "#6B7280";
 
 const TABS = [
-  { href: "/marketingBoard", step: "①", label: "타깃 마케팅", desc: "언제 · 어디에 · 누구를 (4·5·7)" },
-  { href: "/marketingBoard/medical", step: "②", label: "의료관광", desc: "누가 · 어디에 · 무엇을 (4·5)" },
+  { href: "/marketingBoard", step: "①", label: "타깃 마케팅", desc: "언제 · 어디에 · 누구를" },
+  { href: "/marketingBoard/medical", step: "②", label: "의료관광", desc: "누가 · 어디에 · 무엇을" },
 ] as const;
 
 /** 두 보드를 오가는 탭. 서버 컴포넌트라 현재 경로를 props로 받는다. */
