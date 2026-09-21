@@ -31,7 +31,7 @@ export default async function BreakdownPage() {
       </p>
 
       <DataSources
-        period="2018 ~ 2026년(연간) · 2025년(월간)"
+        period="2018 ~ 2026년(연간) · 2025년(월간) · API 2020.01~2026.08(월간)"
         items={[
           {
             key: "specialtyNationwide",
@@ -43,6 +43,12 @@ export default async function BreakdownPage() {
             fields:
               "시도별 진료과목 구성비(%)와, 시도 안에서 소비가 많은 행정동 5곳의 소비액·소비건수 비율(%)",
             use: "패널 1 트리맵의 시도 선택, 패널 2의 동네 추이·순위표 전부",
+          },
+          {
+            key: "ktoConcentration",
+            fields:
+              "시군구별 외국인 방문자수·소비액·국적 다양성 지수(areaIntlDivList)와 숙박 비중 지수(areaTarSjrnDsList)",
+            use: "패널 3의 집중도 지도와 시군구 순위 막대 — 화면을 열 때 실시간 호출",
           },
         ]}
       />

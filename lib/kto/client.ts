@@ -21,6 +21,13 @@
    | 5 | AreaTarDivService | areaIntlDivList | 지역별 국제적 다양성 정보 목록 조회 |
 
    오퍼레이션별 요청/응답 파라미터는 각 lib/kto/area*.ts 상단 주석 참고.
+
+   ⚠ 실측으로 확인한, 문서와 다른 동작 두 가지 —
+     1. 지표 코드(intlDivIxCd·touDivIxCd·tarSjrnDsIxCd 등)는 명세상 옵션(0)이지만 실제로는
+        필수다. 빼고 부르면 오류가 아니라 resultCode 0000 + totalCount 0으로 조용히 빈다.
+     2. signguCd를 빼면 "그 광역의 모든 시군구"가 한 번에 온다(전국 229개를 개별 호출할
+        필요 없이 광역 17번이면 끝난다). 이때 signguCd "0" · signguNm "_" 행이 함께 오는데,
+        시군구가 아니라 그 광역의 총계다.
    ──────────────────────────────────────────────────────────────── */
 
 import { findAreaCd, findSigunguCd } from "./sigunguCodes";
@@ -80,7 +87,11 @@ export async function fetchKtoList<T>(
     ...query,
   });
 
-  const res = await fetch(`${BASE}/${service}/${operation}?${params.toString()}`);
+  // 지표값은 월 단위로 확정되면 소급해 바뀌지 않으므로 무기한 캐시한다. Next 16부터 fetch는
+  // 기본적으로 캐시되지 않아(이전 버전과 다름) 명시하지 않으면 매 요청마다 data.go.kr을 친다.
+  const res = await fetch(`${BASE}/${service}/${operation}?${params.toString()}`, {
+    cache: "force-cache",
+  });
   if (!res.ok) {
     throw new Error(`KTO API 요청 실패: ${res.status} ${res.statusText}`);
   }

@@ -4,8 +4,14 @@ const MUTED = "#6B7280";
 const SURFACE = "#FBFBF8";
 
 const DATALAB = "https://datalab.visitkorea.or.kr";
+const DATAGO = "https://www.data.go.kr";
 
-export type SourceKey = "tour" | "medicalCountry" | "medicalRegion" | "specialtyNationwide";
+export type SourceKey =
+  | "tour"
+  | "medicalCountry"
+  | "medicalRegion"
+  | "specialtyNationwide"
+  | "ktoConcentration";
 
 /**
  * 원자료의 고정 정보(이름·메뉴·축·주의)만 여기에 둔다. 어떤 값을 실제로 쓰는지는 보드마다
@@ -14,7 +20,7 @@ export type SourceKey = "tour" | "medicalCountry" | "medicalRegion" | "specialty
  */
 const SOURCES: Record<
   SourceKey,
-  { name: string; menu: string; href: string; axis: string; basis: string }
+  { name: string; menu: string; href: string; axis: string; basis: string; api?: true }
 > = {
   tour: {
     name: "방문 · 관광소비",
@@ -44,6 +50,15 @@ const SOURCES: Record<
     axis: "지역 · 월 — 국가 구분 없음(항상 전체 외국인 합계)",
     basis: "신한카드 결제 기준이라, 카드로 결제되지 않은 진료비는 잡히지 않습니다",
   },
+  ktoConcentration: {
+    name: "시군구 집중도 (API)",
+    menu: "공공데이터포털 · 한국관광공사 TourAPI · AreaTarDivService / AreaTarDemDsService",
+    href: `${DATAGO}/tcs/dss/selectDataSetList.do?keyword=${encodeURIComponent("지역별 관광 다양성")}`,
+    axis: "시군구 · 월 — 국가 구분 없음(전체 외국인 합계). 2020.01 ~ 2026.08",
+    basis:
+      "값이 명·원 같은 절대량이 아니라 전국 평균을 100으로 둔 지수라, 지역끼리 더하거나 합계를 낼 수 없습니다",
+    api: true,
+  },
 };
 
 /**
@@ -57,6 +72,8 @@ export default function DataSources({
   items: { key: SourceKey; fields: string; use: string }[];
   period: string;
 }) {
+  const hasApi = items.some(({ key }) => SOURCES[key].api);
+
   return (
     <details
       style={{
@@ -71,7 +88,8 @@ export default function DataSources({
       }}
     >
       <summary style={{ cursor: "pointer", color: INK, fontWeight: 700, fontSize: 11.5 }}>
-        데이터 출처 — 전부 한국관광 데이터랩의 공개 자료 {period} · 자료 {items.length}종 (펼쳐 보기)
+        데이터 출처 — {hasApi ? "한국관광 데이터랩 공개 자료 + 공공데이터포털 API 실시간 호출" : "전부 한국관광 데이터랩의 공개 자료"}{" "}
+        {period} · 자료 {items.length}종 (펼쳐 보기)
       </summary>
 
       <div style={{ marginTop: 10, display: "grid", gap: 10 }}>
@@ -88,10 +106,29 @@ export default function DataSources({
                 borderTop: `1px solid ${BORDER}`,
               }}
             >
-              <div style={{ color: INK, fontWeight: 700, fontSize: 12 }}>{s.name}</div>
+              <div style={{ color: INK, fontWeight: 700, fontSize: 12 }}>
+                {s.name}
+                {s.api && (
+                  <span
+                    style={{
+                      display: "inline-block",
+                      marginLeft: 6,
+                      padding: "1px 5px",
+                      borderRadius: 4,
+                      background: "#EAF2FD",
+                      color: "#1c5cab",
+                      fontSize: 9.5,
+                      fontWeight: 700,
+                      verticalAlign: "middle",
+                    }}
+                  >
+                    실시간
+                  </span>
+                )}
+              </div>
               <div>
                 <div>
-                  <span style={{ color: INK }}>데이터랩 메뉴</span> ·{" "}
+                  <span style={{ color: INK }}>{s.api ? "오퍼레이션" : "데이터랩 메뉴"}</span> ·{" "}
                   <a
                     href={s.href}
                     target="_blank"

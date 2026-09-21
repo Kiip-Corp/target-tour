@@ -1,191 +1,33 @@
 import Anthropic from "@anthropic-ai/sdk";
+import {
+  CHANNEL_LABEL,
+  LANG_LABEL,
+  LANG_USAGE_NOTE,
+  langLabel,
+  langOf,
+  type Copy,
+  type GenerateBody,
+} from "../../_promoCopy/channels";
 
 export const runtime = "nodejs";
 
-type Lang = "zh" | "ja" | "th" | "en";
-
-type GenerateBody = {
-  region: string;
-  nation: string;
-  agePeak: string;
-  demand: number;
-  trend: number;
-  medbeauty: number;
-  spend: number;
-  season: string;
-  flight: string;
-  fx: string;
-  keywords: [string, number][];
-  channels: string[];
+/**
+ * PoC0 `/demo`가 보내는 예전 바디. 그 화면은 목업 지표로 돌아가는 습작이라 필드 이름이 다르다.
+ * ④ 콘텐츠 탭은 데이터랩 실측값을 `facts`로 넘긴다 — 라벨에 지표의 정확한 뜻이 들어 있다.
+ */
+type LegacyBody = {
+  keywords?: [string, number][];
+  agePeak?: string;
+  demand?: number;
+  trend?: number;
+  medbeauty?: number;
+  spend?: number;
+  season?: string;
+  flight?: string;
+  fx?: string;
 };
 
-type Copy = {
-  channel: string;
-  lang: string;
-  headline: string;
-  body: string;
-  hashtags: string[];
-  cta: string;
-  ko_gloss: string;
-};
-
-const CHANNEL_LABEL: Record<string, string> = {
-  xiaohongshu: "샤오홍슈",
-  wechat: "위챗",
-  instagram: "인스타그램",
-  email: "이메일 뉴스레터",
-};
-
-/* 채널별 작성 언어. email은 타깃 국적의 현지어를 따른다. */
-const CHANNEL_LANG: Record<string, Lang | "nation"> = {
-  xiaohongshu: "zh",
-  wechat: "zh",
-  instagram: "en",
-  email: "nation",
-};
-
-const NATION_LANG: Record<string, Lang> = {
-  중국: "zh",
-  홍콩: "zh",
-  대만: "zh",
-  일본: "ja",
-  태국: "th",
-  미국: "en",
-};
-
-const LANG_LABEL: Record<Lang, string> = {
-  zh: "중국어 간체",
-  ja: "일본어",
-  th: "태국어",
-  en: "영어",
-};
-
-/* ────────────────────────────────────────────────────────────────
-   목업 폴백용 현지어 사전.
-   ANTHROPIC_API_KEY가 있으면 이 블록은 쓰이지 않는다.
-   ──────────────────────────────────────────────────────────────── */
-
-const REGION_L: Record<string, Record<Lang, string>> = {
-  "서울 강남": { zh: "首尔江南", ja: "ソウル・江南", th: "คังนัม โซล", en: "Gangnam, Seoul" },
-  "서울 명동": { zh: "首尔明洞", ja: "ソウル・明洞", th: "มยองดง โซล", en: "Myeongdong, Seoul" },
-  "부산 서면": { zh: "釜山西面", ja: "釜山・西面", th: "ซอมยอน ปูซาน", en: "Seomyeon, Busan" },
-  "부산 해운대": { zh: "釜山海云台", ja: "釜山・海雲台", th: "แฮอุนแด ปูซาน", en: "Haeundae, Busan" },
-  "대구 동성로": { zh: "大邱东城路", ja: "大邱・東城路", th: "ทงซองโน แทกู", en: "Dongseongno, Daegu" },
-};
-
-const KEYWORD_L: Record<string, Record<Lang, string>> = {
-  쁘띠성형: { zh: "微整形", ja: "プチ整形", th: "ศัลยกรรมไม่ผ่าตัด", en: "non-surgical aesthetics" },
-  줄기세포: { zh: "干细胞护理", ja: "幹細胞ケア", th: "สเต็มเซลล์", en: "stem cell care" },
-  보톡스: { zh: "肉毒瘦脸", ja: "ボトックス", th: "โบท็อกซ์", en: "botox" },
-  K뷰티: { zh: "韩妆护肤", ja: "K-ビューティー", th: "เค-บิวตี้", en: "K-beauty" },
-  코성형: { zh: "鼻整形", ja: "鼻整形", th: "ศัลยกรรมจมูก", en: "rhinoplasty" },
-  "stem cell": { zh: "干细胞护理", ja: "幹細胞ケア", th: "สเต็มเซลล์", en: "stem cell care" },
-};
-
-const NATION_L: Record<string, Record<Lang, string>> = {
-  중국: { zh: "中国", ja: "中国", th: "จีน", en: "Chinese" },
-  홍콩: { zh: "香港", ja: "香港", th: "ฮ่องกง", en: "Hong Kong" },
-  대만: { zh: "台湾", ja: "台湾", th: "ไต้หวัน", en: "Taiwanese" },
-  일본: { zh: "日本", ja: "日本", th: "ญี่ปุ่น", en: "Japanese" },
-  태국: { zh: "泰国", ja: "タイ", th: "ไทย", en: "Thai" },
-  미국: { zh: "美国", ja: "アメリカ", th: "อเมริกา", en: "American" },
-};
-
-function localize(map: Record<string, Record<Lang, string>>, key: string, lang: Lang) {
-  return map[key]?.[lang] ?? key;
-}
-
-function slug(s: string) {
-  return s.replace(/[^A-Za-z0-9]/g, "");
-}
-
-function sampleCopy(channelId: string, lang: Lang, b: GenerateBody): Copy {
-  const kw = localize(KEYWORD_L, b.keywords[0]?.[0] ?? "", lang);
-  const koKw = b.keywords[0]?.[0] ?? "";
-  const reg = localize(REGION_L, b.region, lang);
-  const nat = localize(NATION_L, b.nation, lang);
-  const label = CHANNEL_LABEL[channelId] ?? channelId;
-
-  const base = { channel: label, lang: LANG_LABEL[lang] };
-
-  if (channelId === "xiaohongshu") {
-    return {
-      ...base,
-      headline: `${kw}｜${reg} 认证诊所清单`,
-      body: `iipuda 只对接资质核实过的${reg}诊所与美容院。${kw}相关咨询有中文顾问全程陪同，预约、翻译、行程一次安排好。`,
-      hashtags: ["#韩国医美", `#${kw}`, `#${reg}`, "#iipuda认证"],
-      cta: "点开看认证清单",
-      ko_gloss: `${b.region} ${koKw} 검증 클리닉 리스트 · 중국어 상담 동행 강조`,
-    };
-  }
-
-  if (channelId === "wechat") {
-    return {
-      ...base,
-      headline: `${reg}${kw}行程，先看这份认证名单`,
-      body: `我们逐家核实资质后才会推荐。填写偏好后，顾问会按你的时间与预算，整理${kw}方案和可预约的时段。`,
-      hashtags: ["#iipuda", `#${kw}`, "#韩国旅行"],
-      cta: "点击开始咨询",
-      ko_gloss: `${koKw} 일정 상담 유도 · 예산·일정 맞춤 제안 중심`,
-    };
-  }
-
-  if (channelId === "instagram") {
-    return {
-      ...base,
-      headline: `${kw} in ${reg}, at clinics we actually vetted`,
-      body: `iipuda connects ${nat} travellers with licensed, verified clinics in ${reg}. A personal concierge handles booking, translation, and your schedule — arrival to departure.`,
-      hashtags: ["#KBeauty", `#${slug(kw)}`, `#${slug(reg)}`, "#VerifiedByIipuda"],
-      cta: "See the verified list",
-      ko_gloss: `${b.region} ${koKw} · 검증 클리닉 + 컨시어지 동행을 영어로 소구`,
-    };
-  }
-
-  /* email — 국적 현지어 */
-  const email: Record<Lang, Omit<Copy, "channel" | "lang">> = {
-    zh: {
-      headline: `${reg}${kw}：为${nat}旅客整理的认证诊所清单`,
-      body: `iipuda 逐家核实资质后才收录。顾问会按你的日程给出${kw}方案、预约时段与往返动线，全程有母语沟通。`,
-      hashtags: ["#iipuda", `#${kw}`],
-      cta: "查看认证清单",
-      ko_gloss: `${koKw} 뉴스레터 · 검증 절차와 모국어 상담을 신뢰 근거로 제시`,
-    },
-    ja: {
-      headline: `${reg}の${kw}、審査を通ったクリニックだけ`,
-      body: `iipudaは資格を確認したクリニックとサロンのみをご紹介します。予約から通訳、当日の移動までコンシェルジュが伴走します。`,
-      hashtags: ["#iipuda", `#${kw}`],
-      cta: "認証リストを見る",
-      ko_gloss: `${koKw} 뉴스레터 · 심사 통과 클리닉과 동행 서비스를 강조`,
-    },
-    th: {
-      headline: `${kw} ที่คลินิกซึ่งผ่านการตรวจสอบใน${reg}`,
-      body: `iipuda จับคู่คุณกับคลินิกและร้านความงามที่เราตรวจสอบใบอนุญาตแล้วเท่านั้น มีที่ปรึกษาดูแลตั้งแต่การนัดหมาย การแปล จนจบทริป`,
-      hashtags: ["#iipuda", `#${kw}`],
-      cta: "ดูรายชื่อคลินิก",
-      ko_gloss: `${koKw} 뉴스레터 · 라이선스 검증과 통역 동행을 태국어로 소구`,
-    },
-    en: {
-      headline: `${kw} in ${reg} — only at clinics we verified`,
-      body: `iipuda lists a clinic only after we check its licence and track record. Your concierge arranges consultations, translation, and transfers around your itinerary.`,
-      hashtags: ["#iipuda", `#${slug(kw)}`],
-      cta: "View the verified list",
-      ko_gloss: `${koKw} 뉴스레터 · 검증 절차를 신뢰 근거로 제시`,
-    },
-  };
-
-  return { ...base, ...email[lang] };
-}
-
-function buildSamples(b: GenerateBody): Copy[] {
-  return b.channels.map((id) => {
-    const configured = CHANNEL_LANG[id] ?? "nation";
-    const lang: Lang =
-      configured === "nation" ? NATION_LANG[b.nation] ?? "en" : configured;
-    return sampleCopy(id, lang, b);
-  });
-}
-
-/* ──────────────────────────────────────────────────────────────── */
+type RequestBody = GenerateBody & LegacyBody;
 
 const OUTPUT_SCHEMA = {
   type: "object",
@@ -196,7 +38,10 @@ const OUTPUT_SCHEMA = {
         type: "object",
         properties: {
           channel: { type: "string", description: "채널명(한국어)" },
-          lang: { type: "string", description: "작성 언어" },
+          lang: {
+            type: "string",
+            description: "작성 언어 — 채널별로 지정받은 한국어 라벨을 그대로 적는다(예: \"중국어 번체\"). 로케일 코드(zh-CN 등) 금지",
+          },
           headline: { type: "string", description: "헤드라인 (현지어)" },
           body: { type: "string", description: "본문 2~3문장 (현지어)" },
           hashtags: { type: "array", items: { type: "string" } },
@@ -212,35 +57,90 @@ const OUTPUT_SCHEMA = {
   additionalProperties: false,
 };
 
-function buildPrompt(b: GenerateBody) {
-  const kwList = b.keywords.map(([kw, chg]) => `${kw}(+${chg}%)`).join(", ");
-  const topKeyword = b.keywords[0]?.[0] ?? "";
-  const chLabels = b.channels.map((id) => CHANNEL_LABEL[id] ?? id).join(", ");
+function targetLines(b: RequestBody) {
+  const lines = [`- 지역: ${b.region}`, `- 국적: ${b.nation}`];
+  for (const f of b.facts ?? []) lines.push(`- ${f.label}: ${f.value}`);
+
+  if (b.agePeak) lines.push(`- 주력 연령대: ${b.agePeak}`);
+  if (b.demand !== undefined) lines.push(`- 수요강도: ${b.demand}/100`);
+  if (b.trend !== undefined) lines.push(`- 최근 3개월 증감: ${b.trend > 0 ? "+" : ""}${b.trend}%`);
+  if (b.medbeauty !== undefined) lines.push(`- 의료·뷰티 목적 비중: ${b.medbeauty}%`);
+  if (b.spend !== undefined) lines.push(`- 방문당 소비액: ${b.spend}만원`);
+  if (b.season) lines.push(`- 권장 집행 시점: ${b.season}`);
+  if (b.flight) lines.push(`- 항공: ${b.flight}`);
+  if (b.fx) lines.push(`- 환율: ${b.fx}`);
+  return lines.join("\n");
+}
+
+/**
+ * 카피의 후크. 전년 대비 구성비가 가장 오른 진료과목이 1순위다 — 소비가 그쪽으로 옮겨가는
+ * 중이라는 뜻이라 "지금 이 얘기를 할 이유"가 된다. 없으면 소비액 1위 과목으로 떨어진다.
+ */
+function hookLines(b: RequestBody) {
+  const out: string[] = [];
+  if (b.risingSpecialty)
+    out.push(
+      `★ 메시지 후크: "${b.risingSpecialty}" — 이 국적의 의료소비에서 전년 대비 비중이 가장 많이 오른 진료과목이다. 이걸 콘텐츠의 핵심 후크로 삼아라.`
+    );
+  if (b.topSpecialty)
+    out.push(
+      `★ 소구 근거: 이 국적이 한국에서 의료비를 가장 많이 쓰는 과목은 "${b.topSpecialty}"다.`
+    );
+  if (b.keywords?.length) {
+    const kwList = b.keywords.map(([kw, chg]) => `${kw}(+${chg}%)`).join(", ");
+    out.push(`★ 검색 급상승 키워드: ${kwList} — 최상위 키워드를 핵심 후크로 활용하라.`);
+  }
+  return out.join("\n");
+}
+
+function buildPrompt(b: RequestBody) {
+  const chLines = b.channels
+    .map((id) => {
+      const lang = langOf(id, b.nation);
+      const usage = lang === "zh-Hant" ? ` (${LANG_USAGE_NOTE[b.nation] ?? "번체자로만 쓴다."})` : "";
+      return `- ${CHANNEL_LABEL[id] ?? id} → ${LANG_LABEL[lang]}${usage}`;
+    })
+    .join("\n");
 
   return `너는 iipuda(이뿌다) — 한국 의료·뷰티 관광 개인화 컨시어지 플랫폼 — 의 마케팅 카피라이터다.
-검증된 강남·부산 클리닉과 뷰티샵을, 신뢰를 중시하는 해외 여성 고객과 연결하는 서비스다.
+자격을 검증한 클리닉·뷰티샵을, 신뢰를 중시하는 해외 고객과 연결하는 서비스다.
 
-관광데이터 분석 결과 도출된 타깃:
-- 지역: ${b.region}
-- 국적: ${b.nation} / 주력 연령대: ${b.agePeak}
-- 수요강도: ${b.demand}/100, 최근 3개월 ${b.trend > 0 ? "+" : ""}${b.trend}%
-- 의료·뷰티 목적 비중: ${b.medbeauty}% / 방문당 소비액: ${b.spend}만원 (고가치)
-- 권장 집행 시점: ${b.season}
-- 항공: ${b.flight} / 환율: ${b.fx}
+한국관광 데이터랩 자료로 도출한 타깃:
+${targetLines(b)}
 
-★ 메시지 후크(검색 급상승 키워드): ${kwList}
-  → 반드시 최상위 키워드 "${topKeyword}"을(를) 콘텐츠의 핵심 후크로 활용할 것.
+${hookLines(b)}
 
-다음 채널별 홍보 콘텐츠를 채널당 하나씩 작성하라: ${chLabels}
-각 채널은 채널 관행과 ${b.nation} 독자의 언어로 작성한다.
-(샤오홍슈·위챗→중국어 간체 / 인스타그램→영어+현지어 / 이메일→현지어)
-과장된 의료 효과 표현 금지, "검증된 파트너"·신뢰 중심 톤 유지.`;
+아래 채널마다 홍보 콘텐츠를 하나씩, 지정된 언어로 작성하라. 채널 관행에 맞춘다.
+${chLines}
+
+제약:
+- 과장된 의료 효과·치료 결과 보장 표현 금지. "검증된 파트너"·신뢰 중심 톤을 지킨다.
+- 위 수치를 카피에 그대로 인용하지 말 것. 방문·소비 규모는 추정치가 섞여 있어, 소구 방향을
+  잡는 데만 쓴다.
+- 지정된 언어·표기를 정확히 지킨다. 중국어 간체와 번체는 섞지 말 것 — 번체로 지정된 채널은
+  번체자로만 쓴다(대만·홍콩 독자에게 간체자는 즉시 이질감을 준다).
+- lang 필드에는 위에 지정한 한국어 라벨을 그대로 적는다. zh-CN 같은 로케일 코드를 쓰지 말 것.
+- ko_gloss에는 그 카피가 무엇을 근거로 무엇을 노렸는지 한국어 한 줄로 적어, 사람이 검수할 수
+  있게 한다.`;
+}
+
+/**
+ * 화면에 나가는 언어 표기는 모델 출력이 아니라 우리 규칙이 정한다 — 모델이 `lang`에 "zh-CN" 같은
+ * 코드를 적어 보내도 카드에는 "중국어 간체/번체"가 보이게 한다. 채널명으로 못 맞추면 요청 순서로,
+ * 그것도 아니면 모델이 적은 값을 라벨로 번역해 떨어진다.
+ */
+function withResolvedLang(results: Copy[], b: RequestBody): Copy[] {
+  const idByLabel = new Map(b.channels.map((id) => [CHANNEL_LABEL[id] ?? id, id]));
+  return results.map((r, i) => {
+    const id = idByLabel.get((r.channel ?? "").trim()) ?? b.channels[i];
+    return { ...r, lang: id ? LANG_LABEL[langOf(id, b.nation)] : langLabel(r.lang) };
+  });
 }
 
 export async function POST(request: Request) {
-  let body: GenerateBody;
+  let body: RequestBody;
   try {
-    body = (await request.json()) as GenerateBody;
+    body = (await request.json()) as RequestBody;
   } catch {
     return Response.json({ error: "잘못된 요청 형식입니다." }, { status: 400 });
   }
@@ -249,10 +149,11 @@ export async function POST(request: Request) {
     return Response.json({ error: "필수 파라미터가 누락됐습니다." }, { status: 400 });
   }
 
-  /* 키가 없으면 사전 작성된 샘플 카피로 폴백한다.
-     키를 넣으면 코드 변경 없이 아래 실제 생성 경로로 넘어간다. */
   if (!process.env.ANTHROPIC_API_KEY && !process.env.ANTHROPIC_AUTH_TOKEN) {
-    return Response.json({ results: buildSamples(body), demo: true });
+    return Response.json(
+      { error: "생성 서버에 ANTHROPIC_API_KEY가 설정되지 않았습니다." },
+      { status: 503 }
+    );
   }
 
   const client = new Anthropic();
@@ -281,12 +182,11 @@ export async function POST(request: Request) {
       .join("\n");
 
     const parsed = JSON.parse(text) as { results: Copy[] };
-    return Response.json({ results: parsed.results, demo: false });
+    return Response.json({ results: withResolvedLang(parsed.results ?? [], body) });
   } catch (e) {
     console.error("[/api/generate]", e);
-    /* 키가 자리표시자이거나 만료된 경우도 샘플로 폴백해 데모가 끊기지 않게 한다. */
     if (e instanceof Anthropic.AuthenticationError) {
-      return Response.json({ results: buildSamples(body), demo: true });
+      return Response.json({ error: "ANTHROPIC_API_KEY가 유효하지 않습니다." }, { status: 401 });
     }
     const status = e instanceof Anthropic.APIError ? e.status || 502 : 500;
     return Response.json({ error: "콘텐츠 생성에 실패했어요." }, { status });

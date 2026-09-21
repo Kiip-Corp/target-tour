@@ -149,7 +149,11 @@ const NAV_SECTIONS = [
       { href: "/areaTarExpDsList", label: "areaTarExpDsList", desc: "관광 소비 강도" },
       { href: "/areaTouDivList", label: "areaTouDivList", desc: "관광객 다양성" },
       { href: "/areaExpDivList", label: "areaExpDivList", desc: "관광 소비 다양성" },
-      { href: "/areaIntlDivList", label: "areaIntlDivList", desc: "국제적 다양성" },
+      {
+        href: "/areaIntlDivList",
+        label: "areaIntlDivList",
+        desc: "국제적 다양성 — 시군구 × 월 외국인 방문자수·소비액·국적다양성 «지수»(기준선 100, 2020.01~2026.08). ③ 탭 집중도 지도의 원천",
+      },
     ],
   },
   {

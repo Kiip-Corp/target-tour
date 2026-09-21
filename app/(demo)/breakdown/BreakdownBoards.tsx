@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { RegionSeries } from "../../_data/popularNeighborhoods";
+import ConcentrationPanel from "./ConcentrationPanel";
 import NeighborhoodBoard from "../popularNeighborhoods/NeighborhoodBoard";
 import SpecialtyTreemap from "../specialtyTreemap/SpecialtyTreemap";
 import type { SpecialtyData } from "../specialtyTreemap/categories";
@@ -233,6 +234,33 @@ export default function BreakdownBoards({
           ]}
         />
         <NeighborhoodBoard annual={annual} monthly={monthly} region={region} period={axis} />
+      </Section>
+
+      <Section
+        step="3"
+        title="어디가 뜨거운가 — 시군구 외국인 집중도"
+        question="시도 안에서 외국인이 «유독» 몰린 시군구는 어디인가? 규모가 아니라 집중도로 본다."
+      >
+        <Takeaways
+          items={[
+            <>
+              위 두 패널의 데이터랩 자료는 시도 17개까지만 내려갑니다. 이 패널만 관광공사
+              TourAPI(data.go.kr)를 <b>화면을 열 때 실제로 호출해</b> 그 아래 시군구 층을 채웁니다 —
+              제휴처를 감이 아니라 근거로 고르기 위한 층입니다.
+            </>,
+            <>
+              값은 명·원이 아니라 <b>전국 평균을 100으로 둔 지수</b>입니다. 그래서 지도는 원 크기가
+              아니라 <b>색</b>으로 집중도를 칠하고, 막대 안 세로선(100)을 넘은 곳이 &ldquo;유독 몰린
+              곳&rdquo;입니다. 지역끼리 더하거나 합계를 낼 수 없습니다.
+            </>,
+            <>
+              <b>「국적 다양성」 지표는 낮을수록 좋습니다</b> — 특정 국적이 쏠려 있다는 뜻이라, 한
+              국적을 겨냥한 캠페인의 효율이 높은 곳입니다. 방문자수가 높으면서 다양성이 낮은
+              시군구가 타깃 마케팅의 1순위입니다.
+            </>,
+          ]}
+        />
+        <ConcentrationPanel region={region} />
       </Section>
     </div>
   );
